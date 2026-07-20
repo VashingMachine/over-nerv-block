@@ -1,0 +1,52 @@
+{
+  "storyId": "03",
+  "previewUrl": "http://127.0.0.1:4173/",
+  "buildIdentifier": "e580cf56f147dce014356630beba3115d4c9ee79",
+  "capturedAt": "2026-07-21T00:09:22.048Z",
+  "previewType": "loopback production build",
+  "privacy": "repository-owned synthesized audio only; no filenames or object URLs",
+  "artifacts": [
+    {
+      "file": "desktop-idle.png",
+      "scenario": "private local-audio promise, supported formats, limits, and idle action",
+      "viewport": "1440x900",
+      "bytes": 434446,
+      "sha256": "2af3db72660529bc9da6e36f0571f36f97d8f36beba4325adfb744c7616ae6a1"
+    },
+    {
+      "file": "desktop-progress.png",
+      "scenario": "visible browser-local preparation progress and cancellation action",
+      "viewport": "1440x900 section",
+      "bytes": 60143,
+      "sha256": "7d29017919d10809644e5bde8f8cb626ff9e0d5df657a3cd8518011aa412ee68"
+    },
+    {
+      "file": "desktop-ready.png",
+      "scenario": "filename-free ready state with duration, size, format, audio facts, preview, replace, and clear",
+      "viewport": "1440x900",
+      "bytes": 458754,
+      "sha256": "6ac91b4b96381689ebbbdd0c0990d2e097e780411e1db14835c626946cf1d4bf"
+    },
+    {
+      "file": "desktop-error.png",
+      "scenario": "generic corrupt-audio failure with a filename-free retry action",
+      "viewport": "1440x900",
+      "bytes": 443402,
+      "sha256": "eb1b3d55aca01a4079b1d639847001c61060aa2ee78bef80f7f1c39a39cf9070"
+    },
+    {
+      "file": "private-audio-loop.webm",
+      "scenario": "idle, local progress, cancellation, valid ready, clear, and corrupt retry flow",
+      "viewport": "1440x900",
+      "bytes": 448785,
+      "sha256": "1f44162e3aa69a104485f7bfcd7ce3f8d214f6bfc13bc4ab1c674cb6963287c8"
+    },
+    {
+      "file": "mobile-ready.png",
+      "scenario": "412-pixel filename-free ready state at the natural horizontal origin",
+      "viewport": "412x915",
+      "bytes": 1123380,
+      "sha256": "421f175c4da99ab1c430b2f6e9e3b40ef91891865a1173e6e7b7ea9b766499b1"
+    }
+  ]
+}

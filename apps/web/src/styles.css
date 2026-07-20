@@ -56,6 +56,9 @@ a {
 main,
 .hero,
 .status-card,
+.local-audio,
+.local-audio__intro,
+.local-audio__state,
 .demo,
 .track-card,
 .track-copy,
@@ -326,6 +329,137 @@ h1 {
 .button--secondary {
   color: #f5f1e9;
   background: transparent;
+}
+
+.local-audio {
+  display: grid;
+  width: min(100% - 2.5rem, 78rem);
+  margin: 0 auto clamp(5rem, 10vw, 9rem);
+  grid-template-columns: minmax(0, 0.8fr) minmax(20rem, 1.2fr);
+  gap: clamp(1.5rem, 5vw, 5rem);
+  align-items: start;
+}
+
+.local-audio__intro h2,
+.local-audio__state h3 {
+  margin: 0;
+  letter-spacing: -0.04em;
+}
+
+.local-audio__intro h2 {
+  max-width: 10ch;
+  font-size: clamp(2.4rem, 5vw, 4.8rem);
+  line-height: 0.98;
+}
+
+.local-audio__state h3 {
+  font-size: clamp(1.7rem, 3vw, 2.7rem);
+}
+
+.local-audio__privacy {
+  margin: 1.5rem 0 0;
+  color: #f5f1e9;
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.55;
+}
+
+.local-audio__guidance,
+.local-audio__state-copy,
+.local-audio__state p:not(.local-audio__status-label) {
+  color: #bbb6ac;
+  line-height: 1.55;
+}
+
+.local-audio__guidance {
+  max-width: 34rem;
+}
+
+.local-audio__state {
+  position: relative;
+  min-height: 22rem;
+  padding: clamp(1.25rem, 3vw, 2.25rem);
+  border: 1px solid rgb(245 241 233 / 18%);
+  background: rgb(19 18 17 / 92%);
+}
+
+.local-audio__state--reading,
+.local-audio__state--decoding {
+  border-color: rgb(231 196 103 / 55%);
+}
+
+.local-audio__state--error {
+  border-color: rgb(236 90 61 / 60%);
+}
+
+.local-audio__state--ready {
+  border-color: rgb(168 220 107 / 52%);
+}
+
+.local-audio__status-label {
+  margin: 0 0 0.6rem;
+  color: #ec5a3d;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.local-audio__state progress {
+  width: 100%;
+  height: 0.55rem;
+  margin-top: 1.5rem;
+  accent-color: #e7c467;
+}
+
+.local-audio__state .button {
+  margin-top: 1rem;
+}
+
+.local-audio__facts {
+  display: grid;
+  margin: 1.5rem 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid rgb(245 241 233 / 14%);
+  border-left: 1px solid rgb(245 241 233 / 14%);
+}
+
+.local-audio__facts div {
+  min-width: 0;
+  padding: 0.8rem;
+  border-right: 1px solid rgb(245 241 233 / 14%);
+  border-bottom: 1px solid rgb(245 241 233 / 14%);
+}
+
+.local-audio__facts dt,
+.local-audio__facts dd {
+  margin: 0;
+}
+
+.local-audio__facts dt {
+  color: #9e9a92;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.local-audio__facts dd {
+  margin-top: 0.35rem;
+  overflow-wrap: anywhere;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.local-audio__preview {
+  width: 100%;
+  max-width: 100%;
+}
+
+.local-audio__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
 }
 
 .demo {
@@ -714,6 +848,14 @@ h1 {
     align-items: start;
   }
 
+  .local-audio {
+    grid-template-columns: 1fr;
+  }
+
+  .local-audio__intro h2 {
+    max-width: 14ch;
+  }
+
   .track-card .button--primary {
     width: 100%;
     grid-column: 1 / -1;
@@ -759,6 +901,23 @@ h1 {
 }
 
 @media (max-width: 480px) {
+  .local-audio {
+    width: min(100% - 2rem, 78rem);
+  }
+
+  .local-audio__facts {
+    grid-template-columns: 1fr;
+  }
+
+  .local-audio__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .local-audio__actions .button {
+    width: 100%;
+  }
+
   .track-card {
     grid-template-columns: 1fr;
   }

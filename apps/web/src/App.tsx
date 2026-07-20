@@ -1,6 +1,7 @@
 import { SystemStatus } from "./components/SystemStatus";
 import { DemoGame } from "./demo/DemoGame";
 import { useBuildManifest } from "./hooks/useBuildManifest";
+import { LocalAudioPicker } from "./localAudio/LocalAudioPicker";
 
 const buildId = import.meta.env.VITE_BUILD_ID ?? "development";
 
@@ -21,24 +22,25 @@ export function App() {
       <main>
         <section className="hero">
           <div className="eyebrow">
-            <span>02</span>
-            <span>Fair timing and score</span>
+            <span>03</span>
+            <span>Private local audio</span>
           </div>
           <div className="hero-copy">
             <p className="kicker">Your music. Your timing.</p>
             <h1>Make every beat playable.</h1>
             <p className="lede">
-              Calibrate your device, follow an original eight-second track, and
-              turn accurate hits into score and combo.
+              Prepare music privately in this tab, or calibrate your timing on
+              the original eight-second demo. Your audio is never uploaded.
             </p>
           </div>
           <SystemStatus state={systemState} onRetry={retry} />
         </section>
+        <LocalAudioPicker />
         <DemoGame />
       </main>
 
       <footer className="footer">
-        <p>Stage 02 / Fair scoring</p>
+        <p>Stage 03 / Private local audio</p>
         <p>Runs locally in your browser.</p>
       </footer>
     </div>
