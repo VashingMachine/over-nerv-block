@@ -21,15 +21,15 @@ export function App() {
       <main>
         <section className="hero">
           <div className="eyebrow">
-            <span>01</span>
-            <span>First playable pulse</span>
+            <span>02</span>
+            <span>Fair timing and score</span>
           </div>
           <div className="hero-copy">
             <p className="kicker">Your music. Your timing.</p>
             <h1>Make every beat playable.</h1>
             <p className="lede">
-              Start with an original eight-second track. Follow the notes and
-              press Space, tap the lane, or use the Hit button.
+              Calibrate your device, follow an original eight-second track, and
+              turn accurate hits into score and combo.
             </p>
           </div>
           <SystemStatus state={systemState} onRetry={retry} />
@@ -38,7 +38,7 @@ export function App() {
       </main>
 
       <footer className="footer">
-        <p>Stage 01 / Bundled demo</p>
+        <p>Stage 02 / Fair scoring</p>
         <p>Runs locally in your browser.</p>
       </footer>
     </div>

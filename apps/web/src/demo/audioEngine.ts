@@ -1,4 +1,4 @@
-export type AudioEngineStatus = "idle" | "scheduled" | "disposed";
+export type AudioEngineStatus = "idle" | "scheduled" | "paused" | "disposed";
 
 export interface AudioEngine {
   readonly status: AudioEngineStatus;
@@ -8,6 +8,9 @@ export interface AudioEngine {
     beforeSchedule?: () => Promise<unknown>;
     onEnded: () => void;
   }): Promise<void>;
+  pause(): Promise<boolean>;
+  resume(): Promise<boolean>;
+  songTimeForEvent(eventTimestampMilliseconds: number): number;
   songTimeSeconds(): number;
   dispose(): void;
 }
@@ -20,6 +23,8 @@ export class WebAudioEngine implements AudioEngine {
   private endedHandler: (() => void) | null = null;
   private abortController: AbortController | null = null;
   private scheduledStartSeconds: number | null = null;
+  private performanceAnchorMilliseconds: number | null = null;
+  private contextAnchorSeconds: number | null = null;
   private currentStatus: AudioEngineStatus = "idle";
 
   get status(): AudioEngineStatus {
@@ -79,6 +84,8 @@ export class WebAudioEngine implements AudioEngine {
     this.source = source;
     this.scheduledStartSeconds = context.currentTime + countdownSeconds;
     this.currentStatus = "scheduled";
+    this.performanceAnchorMilliseconds = performance.now();
+    this.contextAnchorSeconds = context.currentTime;
     source.start(this.scheduledStartSeconds);
   }
 
@@ -100,6 +107,8 @@ export class WebAudioEngine implements AudioEngine {
     this.endedHandler = null;
     this.abortController = null;
     this.scheduledStartSeconds = null;
+    this.performanceAnchorMilliseconds = null;
+    this.contextAnchorSeconds = null;
     this.context = null;
     this.currentStatus = "disposed";
     void context.close();
@@ -111,6 +120,55 @@ export class WebAudioEngine implements AudioEngine {
     }
 
     return this.context.currentTime - this.scheduledStartSeconds;
+  }
+
+  songTimeForEvent(eventTimestampMilliseconds: number): number {
+    if (
+      this.scheduledStartSeconds === null ||
+      this.performanceAnchorMilliseconds === null ||
+      this.contextAnchorSeconds === null
+    ) {
+      return -Infinity;
+    }
+    const normalizedTimestamp =
+      eventTimestampMilliseconds > performance.timeOrigin
+        ? eventTimestampMilliseconds - performance.timeOrigin
+        : eventTimestampMilliseconds;
+    const eventContextTime =
+      this.contextAnchorSeconds +
+      (normalizedTimestamp - this.performanceAnchorMilliseconds) / 1_000;
+    return eventContextTime - this.scheduledStartSeconds;
+  }
+
+  async pause(): Promise<boolean> {
+    if (!this.context || this.currentStatus !== "scheduled") {
+      return false;
+    }
+    const context = this.context;
+    await context.suspend();
+    if (this.context !== context || this.currentStatus !== "scheduled") {
+      return false;
+    }
+    this.currentStatus = "paused";
+    return true;
+  }
+
+  async resume(): Promise<boolean> {
+    if (!this.context || this.currentStatus !== "paused") {
+      return false;
+    }
+    const context = this.context;
+    await context.resume();
+    if (context.state !== "running") {
+      throw new Error("Audio could not resume. Allow audio and try again.");
+    }
+    if (this.context !== context || this.currentStatus !== "paused") {
+      return false;
+    }
+    this.performanceAnchorMilliseconds = performance.now();
+    this.contextAnchorSeconds = context.currentTime;
+    this.currentStatus = "scheduled";
+    return true;
   }
 
   dispose(): void {
@@ -136,6 +194,8 @@ export class WebAudioEngine implements AudioEngine {
     this.endedHandler = null;
     this.abortController = null;
     this.scheduledStartSeconds = null;
+    this.performanceAnchorMilliseconds = null;
+    this.contextAnchorSeconds = null;
     this.context = null;
   }
 }

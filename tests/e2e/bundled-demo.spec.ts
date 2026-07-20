@@ -31,6 +31,25 @@ async function expectHorizontalContainment(page: Page) {
   expect(layout.outsideViewport).toEqual([]);
 }
 
+async function waitForSongTime(page: Page, minimumSeconds: number) {
+  await page.waitForFunction(
+    (minimum) => {
+      const progress = document.querySelector<HTMLProgressElement>(
+        'progress[aria-label="Song progress"]',
+      );
+      return progress !== null && progress.value >= minimum;
+    },
+    minimumSeconds,
+    { timeout: 8_000 },
+  );
+}
+
+async function songTime(page: Page) {
+  return page
+    .getByRole("progressbar", { name: "Song progress" })
+    .evaluate((progress: HTMLProgressElement) => progress.value);
+}
+
 test("player completes the bundled demo with keyboard and pointer input", async ({
   page,
 }) => {
@@ -48,22 +67,42 @@ test("player completes the bundled demo with keyboard and pointer input", async 
     page.getByTestId("rhythm-canvas").locator("canvas"),
   ).toBeVisible();
 
+  await waitForSongTime(page, 0.97);
   await page.keyboard.press("Space");
-  await expect(page.getByTestId("input-feedback")).toHaveText(
-    "Input 1 received",
+  await expect(page.getByTestId("input-feedback")).toContainText(
+    /Perfect|Good/,
   );
+  const firstScore = Number(
+    (
+      await page.getByTestId("scoreboard").locator("strong").first().innerText()
+    ).replaceAll(",", ""),
+  );
+
+  await waitForSongTime(page, 1.47);
   await page.getByRole("button", { name: "Hit", exact: true }).click();
-  await expect(page.getByTestId("input-feedback")).toHaveText(
-    "Input 2 received",
-  );
+  await expect
+    .poll(async () =>
+      Number(
+        (
+          await page
+            .getByTestId("scoreboard")
+            .locator("strong")
+            .first()
+            .innerText()
+        ).replaceAll(",", ""),
+      ),
+    )
+    .toBeGreaterThan(firstScore);
+
+  await waitForSongTime(page, 1.97);
   await page
     .getByTestId("rhythm-canvas")
     .locator("canvas")
     .click({
       position: { x: 20, y: 20 },
     });
-  await expect(page.getByTestId("input-feedback")).toHaveText(
-    "Input 3 received",
+  await expect(page.getByTestId("input-feedback")).toContainText(
+    /Perfect|Good/,
   );
   await expectHorizontalContainment(page);
 
@@ -71,6 +110,45 @@ test("player completes the bundled demo with keyboard and pointer input", async 
     timeout: 15_000,
   });
   await expect(page.getByRole("button", { name: "Play again" })).toBeEnabled();
+  await expect(
+    page.getByRole("status", { name: "Track results" }),
+  ).toContainText("Accuracy");
+  await expect(
+    page.getByRole("status", { name: "Track results" }),
+  ).toContainText("Miss");
+  await page.getByRole("button", { name: "Retry run" }).click();
+  await expect(page.getByText("Get ready")).toBeVisible();
+  await expect(page.getByTestId("scoreboard")).toContainText("Score 0");
+  await expectHorizontalContainment(page);
+});
+
+test("player can persist calibration and control the transport", async ({
+  page,
+}) => {
+  await page.goto("./");
+  await page.getByRole("button", { name: "Calibrate device" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Calibrate this device" }),
+  ).toBeVisible();
+  await page.getByRole("slider").fill("80");
+  await page.getByRole("button", { name: "Save calibration" }).click();
+  await expect(page.getByText("+80 ms", { exact: true })).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByText("+80 ms", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Start demo" }).click();
+  await waitForSongTime(page, 0.25);
+  await page.getByRole("button", { name: "Pause" }).click();
+  await expect(page.getByText("Paused")).toBeVisible();
+  const pausedAt = await songTime(page);
+  await page.waitForTimeout(350);
+  expect(await songTime(page)).toBe(pausedAt);
+
+  await page.getByRole("button", { name: "Resume" }).click();
+  await waitForSongTime(page, pausedAt + 0.15);
+  await page.getByRole("button", { name: "Restart" }).click();
+  await expect(page.getByText("Get ready")).toBeVisible();
+  await expect(page.getByTestId("scoreboard")).toContainText("Score 0");
   await expectHorizontalContainment(page);
 });
 

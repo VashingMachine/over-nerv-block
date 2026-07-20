@@ -10,19 +10,23 @@ const GAME_WIDTH = 960;
 interface RhythmGameCanvasProps {
   chart: RhythmChart;
   getSongTime: () => number;
-  onInput: () => void;
+  isNoteJudged: (noteIndex: number) => boolean;
+  onInput: (eventTimestampMilliseconds: number) => void;
 }
 
 export function RhythmGameCanvas({
   chart,
   getSongTime,
+  isNoteJudged,
   onInput,
 }: RhythmGameCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const getSongTimeRef = useRef(getSongTime);
+  const isNoteJudgedRef = useRef(isNoteJudged);
   const onInputRef = useRef(onInput);
 
   getSongTimeRef.current = getSongTime;
+  isNoteJudgedRef.current = isNoteJudged;
   onInputRef.current = onInput;
 
   useEffect(() => {
@@ -66,7 +70,9 @@ export function RhythmGameCanvas({
               .setStrokeStyle(6, 0xe7c467),
           );
 
-          this.input.on("pointerdown", () => onInputRef.current());
+          this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) =>
+            onInputRef.current(pointer.event?.timeStamp ?? performance.now()),
+          );
         }
 
         override update() {
@@ -74,7 +80,13 @@ export function RhythmGameCanvas({
           chart.notes.forEach((note, index) => {
             const noteObject = this.noteObjects[index];
             const y = noteYForSongTime(note.timeSeconds, songTime);
-            noteObject?.setY(y).setVisible(y > -40 && y < GAME_HEIGHT + 40);
+            noteObject
+              ?.setY(y)
+              .setVisible(
+                !isNoteJudgedRef.current(index) &&
+                  y > -40 &&
+                  y < GAME_HEIGHT + 40,
+              );
           });
         }
       }

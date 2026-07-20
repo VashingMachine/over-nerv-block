@@ -1,0 +1,72 @@
+{
+  "storyId": "02",
+  "previewUrl": "http://127.0.0.1:4173/",
+  "buildIdentifier": "ca49be416bb60e32c2451eb1755fff4dc29f53e3",
+  "capturedAt": "2026-07-20T23:24:28.942Z",
+  "previewType": "loopback production build",
+  "artifacts": [
+    {
+      "file": "desktop-calibration.png",
+      "scenario": "visible device-offset explanation and positive 80 millisecond setting",
+      "viewport": "1440x900",
+      "bytes": 413820,
+      "sha256": "0d6821b6f9e4e1a18519c5ee294fcc4a5f5746fea5314dd1e7f3332540872581"
+    },
+    {
+      "file": "desktop-scoring.png",
+      "scenario": "live judgment, score, combo, misses, and three supported controls",
+      "viewport": "1440x900",
+      "bytes": 397890,
+      "sha256": "6a6354b802a8c5dfceda21e417866bb4104f017134ca528368891abf10c7b8e5"
+    },
+    {
+      "file": "desktop-paused.png",
+      "scenario": "paused transport retaining score and song position after an expired note",
+      "viewport": "1440x900",
+      "bytes": 391685,
+      "sha256": "815e16e8ad3f1141c7e1b5d32d2f72728a5cac932724a3564124928b5e9b981a"
+    },
+    {
+      "file": "desktop-results.png",
+      "scenario": "derived score, accuracy, max combo, judgment counts, and retry action",
+      "viewport": "1440x900",
+      "bytes": 408951,
+      "sha256": "088dec7a68cd988a169628a7c46d5b16700bf4afbd7278706fe0878b21c23b62"
+    },
+    {
+      "file": "desktop-retry.png",
+      "scenario": "clean retry countdown with zero score",
+      "viewport": "1440x900",
+      "bytes": 385926,
+      "sha256": "8324c29d3b8c666a4ed003c50e6b47af3c00e6e914844384c84ce873519b93b1"
+    },
+    {
+      "file": "scored-loop.webm",
+      "scenario": "calibration, reload, scored input, miss, pause, resume, results, and retry",
+      "viewport": "1440x900",
+      "bytes": 1200752,
+      "sha256": "9239be10b7841010eb1377e2af0fe0947aad5b8501b5c15ce44dbc46811cbd4b"
+    },
+    {
+      "file": "mobile-scoring.png",
+      "scenario": "touch-sized mobile scoring controls at the natural horizontal origin",
+      "viewport": "412x915",
+      "bytes": 952991,
+      "sha256": "731f2ec8422daeea7f0f21d7494fc102d0c0e5208df4df2b2ddedbcc35e82033"
+    },
+    {
+      "file": "audio-unavailable.png",
+      "scenario": "failed audio request with concise retry action",
+      "viewport": "1280x720",
+      "bytes": 328815,
+      "sha256": "d0167a8baf1c4f3f4bbfdd6c9c9129da38bfe8100c2138a578b1ccbc6e45eea8"
+    },
+    {
+      "file": "audio-recovered.png",
+      "scenario": "successful audio retry enters countdown",
+      "viewport": "1280x720",
+      "bytes": 315306,
+      "sha256": "3282ae34ea863c90815d630d9cdc8341c2c7b4af918a720021af311b8df8160f"
+    }
+  ]
+}

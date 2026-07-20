@@ -18,6 +18,9 @@ class FakeAudioContext {
   readonly resume = vi.fn(async () => {
     this.state = "running";
   });
+  readonly suspend = vi.fn(async () => {
+    this.state = "suspended";
+  });
   readonly decodeAudioData = vi.fn(async () => ({}) as AudioBuffer);
   readonly createBufferSource = vi.fn(
     () => this.source as unknown as AudioBufferSourceNode,
@@ -47,6 +50,7 @@ describe("Web Audio song clock", () => {
   it("schedules from AudioContext.currentTime and exposes that origin", async () => {
     const context = new FakeAudioContext();
     installAudioContext(context);
+    vi.spyOn(performance, "now").mockReturnValue(5_000);
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(new Response(new Uint8Array([1, 2, 3]))),
@@ -64,6 +68,7 @@ describe("Web Audio song clock", () => {
     expect(engine.songTimeSeconds()).toBe(-1.5);
     context.currentTime = 11.75;
     expect(engine.songTimeSeconds()).toBe(0.25);
+    expect(engine.songTimeForEvent(6_750)).toBe(0.25);
   });
 
   it("closes and disconnects immediately after natural completion", async () => {
@@ -85,6 +90,46 @@ describe("Web Audio song clock", () => {
     expect(context.close).toHaveBeenCalledOnce();
     expect(engine.status).toBe("disposed");
     expect(engine.songTimeSeconds()).toBe(-Infinity);
+  });
+
+  it("freezes the audio clock while paused and resumes the same source", async () => {
+    const context = new FakeAudioContext();
+    installAudioContext(context);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("audio")));
+    const engine = new WebAudioEngine();
+    await engine.start({
+      audioUrl: "audio/demo.wav",
+      countdownSeconds: 1.5,
+      onEnded: vi.fn(),
+    });
+    context.currentTime = 12;
+
+    await expect(engine.pause()).resolves.toBe(true);
+    const pausedTime = engine.songTimeSeconds();
+    expect(context.suspend).toHaveBeenCalledOnce();
+    expect(engine.status).toBe("paused");
+
+    await expect(engine.resume()).resolves.toBe(true);
+    expect(engine.status).toBe("scheduled");
+    expect(engine.songTimeSeconds()).toBe(pausedTime);
+    expect(context.source.start).toHaveBeenCalledOnce();
+  });
+
+  it("reports transport no-ops after disposal", async () => {
+    const context = new FakeAudioContext();
+    installAudioContext(context);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("audio")));
+    const engine = new WebAudioEngine();
+    await engine.start({
+      audioUrl: "audio/demo.wav",
+      countdownSeconds: 1.5,
+      onEnded: vi.fn(),
+    });
+
+    engine.dispose();
+
+    await expect(engine.pause()).resolves.toBe(false);
+    await expect(engine.resume()).resolves.toBe(false);
   });
 
   it("makes disposal terminal while loading and aborts pending work", async () => {
