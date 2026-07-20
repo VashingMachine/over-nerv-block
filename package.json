@@ -1,0 +1,44 @@
+{
+  "name": "over-nerv-block",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @rhythm-game/chart-schema && npm run build --workspace @rhythm-game/web",
+    "check:licenses": "node scripts/check-node-licenses.mjs && uv run --project services/api python scripts/check_python_licenses.py",
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "dev": "concurrently -k -n api,web -c magenta,cyan \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "uv run --project services/api uvicorn app.main:app --app-dir services/api --reload --host 127.0.0.1 --port 8000",
+    "dev:web": "npm run dev --workspace @rhythm-game/web",
+    "evidence:capture": "node scripts/capture-story-evidence.mjs",
+    "format:check": "prettier --check .",
+    "lint": "eslint apps packages scripts tests && npm run lint:api",
+    "lint:api": "uv run --project services/api ruff check services/api/app services/api/tests scripts",
+    "typecheck": "npm run typecheck --workspace @rhythm-game/chart-schema && npm run typecheck --workspace @rhythm-game/web && npm run typecheck:api",
+    "typecheck:api": "uv run --project services/api mypy services/api/app services/api/tests scripts/check_python_licenses.py",
+    "test": "npm run test:unit && npm run test:api",
+    "test:unit": "npm run test --workspace @rhythm-game/chart-schema && npm run test --workspace @rhythm-game/web",
+    "test:api": "cd services/api && uv run pytest",
+    "test:e2e": "npm run build && playwright test",
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run check:secrets && npm run check:licenses && npm test && npm run build"
+  },
+  "devDependencies": {
+    "@eslint/js": "latest",
+    "@types/node": "latest",
+    "@playwright/test": "latest",
+    "concurrently": "latest",
+    "eslint": "latest",
+    "eslint-plugin-react-hooks": "latest",
+    "globals": "latest",
+    "prettier": "latest",
+    "typescript": "latest",
+    "typescript-eslint": "latest"
+  }
+}

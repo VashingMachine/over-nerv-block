@@ -1,0 +1,7 @@
+dist
+node_modules
+playwright-report
+test-results
+uv.lock
+package-lock.json
+story/**/evidence/*.json

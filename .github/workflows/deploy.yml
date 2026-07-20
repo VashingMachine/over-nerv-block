@@ -1,0 +1,219 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Build an immutable preview or promote one to staging
+        required: true
+        type: choice
+        options:
+          - preview
+          - staging
+      candidate_sha:
+        description: Full preview commit SHA; required only for staging promotion
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-${{ inputs.target }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ inputs.target }}
+    env:
+      ARTIFACT_REPOSITORY: ${{ vars.GCP_ARTIFACT_REPOSITORY }}
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ vars.GCP_REGION }}
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Validate deployment inputs
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          DEPLOY_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+          RUNTIME_SERVICE_ACCOUNT: ${{ vars.GCP_RUNTIME_SERVICE_ACCOUNT }}
+          WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+        run: |
+          test -n "$GCP_PROJECT_ID"
+          test -n "$GCP_REGION"
+          test -n "$ARTIFACT_REPOSITORY"
+          test -n "$DEPLOY_SERVICE_ACCOUNT"
+          test -n "$RUNTIME_SERVICE_ACCOUNT"
+          test -n "$WORKLOAD_IDENTITY_PROVIDER"
+          if [ "${{ inputs.target }}" = "staging" ]; then
+            printf '%s' "$CANDIDATE_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          fi
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.13"
+
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          enable-cache: true
+
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+
+      - name: Verify source
+        run: |
+          npm ci
+          uv sync --project services/api --frozen
+          npm run verify
+          npm audit --audit-level=high
+          uvx pip-audit==2.10.1 --path services/api/.venv/lib/python3.13/site-packages
+          npx playwright install --with-deps chromium
+
+      - name: Configure Artifact Registry
+        run: gcloud auth configure-docker "$GCP_REGION-docker.pkg.dev" --quiet
+
+      - name: Build immutable preview images
+        if: inputs.target == 'preview'
+        run: |
+          registry="$GCP_REGION-docker.pkg.dev/$GCP_PROJECT_ID/$ARTIFACT_REPOSITORY"
+          docker build --tag "$registry/api:$GITHUB_SHA" services/api
+          docker build \
+            --build-arg NGINX_CONFIG=apps/web/nginx.cloud-run.conf \
+            --build-arg VITE_BUILD_ID="$GITHUB_SHA" \
+            --tag "$registry/web:$GITHUB_SHA" \
+            --file apps/web/Dockerfile \
+            .
+          docker push "$registry/api:$GITHUB_SHA"
+          docker push "$registry/web:$GITHUB_SHA"
+
+      - name: Promote tested image digests
+        if: inputs.target == 'staging'
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+        run: |
+          registry="$GCP_REGION-docker.pkg.dev/$GCP_PROJECT_ID/$ARTIFACT_REPOSITORY"
+          gcloud artifacts docker tags add \
+            "$registry/api:$CANDIDATE_SHA" \
+            "$registry/api:$GITHUB_SHA" \
+            --quiet
+          gcloud artifacts docker tags add \
+            "$registry/web:$CANDIDATE_SHA" \
+            "$registry/web:$GITHUB_SHA" \
+            --quiet
+
+      - name: Deploy same-origin web and API service
+        id: cloud-run
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          RUNTIME_SERVICE_ACCOUNT: ${{ vars.GCP_RUNTIME_SERVICE_ACCOUNT }}
+        run: |
+          registry="$GCP_REGION-docker.pkg.dev/$GCP_PROJECT_ID/$ARTIFACT_REPOSITORY"
+          build_id="$GITHUB_SHA"
+          service="over-nerv-block-staging"
+
+          if [ "${{ inputs.target }}" = "preview" ]; then
+            service="onb-s00-${GITHUB_SHA:0:12}"
+          else
+            build_id="$CANDIDATE_SHA"
+          fi
+
+          gcloud run deploy "$service" \
+            --project "$GCP_PROJECT_ID" \
+            --region "$GCP_REGION" \
+            --allow-unauthenticated \
+            --service-account "$RUNTIME_SERVICE_ACCOUNT" \
+            --max-instances 2 \
+            --min-instances 0 \
+            --revision-suffix "${GITHUB_SHA:0:12}" \
+            --container web \
+            --image "$registry/web:$GITHUB_SHA" \
+            --port 8080 \
+            --depends-on api \
+            --container api \
+            --image "$registry/api:$GITHUB_SHA" \
+            --command uvicorn \
+            --args app.main:app,--host,0.0.0.0,--port,8081,--no-access-log \
+            --set-env-vars "APP_COMMIT=$build_id,APP_ENV=${{ inputs.target }},APP_VERSION=0.1.0,ALLOWED_ORIGINS=https://same-origin.invalid" \
+            --startup-probe httpGet.path=/api/health,httpGet.port=8081,initialDelaySeconds=0,timeoutSeconds=3,periodSeconds=3,failureThreshold=10 \
+            --quiet
+
+          service_url="$(gcloud run services describe "$service" \
+            --project "$GCP_PROJECT_ID" \
+            --region "$GCP_REGION" \
+            --format='value(status.url)')"
+          echo "service-url=$service_url" >> "$GITHUB_OUTPUT"
+          echo "build-id=$build_id" >> "$GITHUB_OUTPUT"
+          echo "service-name=$service" >> "$GITHUB_OUTPUT"
+
+      - name: Deployed E2E and smoke
+        env:
+          E2E_API_BASE_URL: ${{ steps.cloud-run.outputs.service-url }}/api
+          E2E_BASE_URL: ${{ steps.cloud-run.outputs.service-url }}
+        run: |
+          curl --fail --retry 8 --retry-all-errors --retry-delay 2 "$E2E_BASE_URL/api/health"
+          npx playwright test
+
+      - name: Capture preview product evidence
+        if: inputs.target == 'preview'
+        env:
+          EVIDENCE_API_BASE_URL: ${{ steps.cloud-run.outputs.service-url }}/api
+          EVIDENCE_BASE_URL: ${{ steps.cloud-run.outputs.service-url }}
+          EVIDENCE_BUILD_ID: ${{ steps.cloud-run.outputs.build-id }}
+        run: npm run evidence:capture
+
+      - name: Write deployment record
+        env:
+          BUILD_ID: ${{ steps.cloud-run.outputs.build-id }}
+          SERVICE_NAME: ${{ steps.cloud-run.outputs.service-name }}
+          SERVICE_URL: ${{ steps.cloud-run.outputs.service-url }}
+          TARGET: ${{ inputs.target }}
+        run: |
+          node --input-type=module -e '
+            import { mkdir, writeFile } from "node:fs/promises";
+            const record = {
+              target: process.env.TARGET,
+              buildIdentifier: process.env.BUILD_ID,
+              sourceCommit: process.env.GITHUB_SHA,
+              service: process.env.SERVICE_NAME,
+              url: process.env.SERVICE_URL,
+              deployedAt: new Date().toISOString(),
+            };
+            await mkdir("story/00-system-heartbeat", { recursive: true });
+            await writeFile(
+              "story/00-system-heartbeat/deployment.json",
+              JSON.stringify(record, null, 2) + "\n",
+            );
+          '
+
+      - name: Upload deployment record and evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sprint-00-${{ inputs.target }}-${{ github.sha }}
+          path: |
+            story/00-system-heartbeat/deployment.json
+            story/00-system-heartbeat/evidence
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish deployment summary
+        env:
+          SERVICE_URL: ${{ steps.cloud-run.outputs.service-url }}
+        run: |
+          echo "### ${{ inputs.target }} deployed" >> "$GITHUB_STEP_SUMMARY"
+          echo "Service: $SERVICE_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "Source: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
