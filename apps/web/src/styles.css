@@ -11,14 +11,24 @@
 }
 
 html {
+  width: 100%;
+  max-width: 100%;
   min-width: 320px;
   background: #11100f;
 }
 
 body {
+  width: 100%;
+  max-width: 100%;
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  overflow-x: clip;
+}
+
+#root {
+  width: 100%;
+  max-width: 100%;
 }
 
 button,
@@ -39,6 +49,21 @@ a {
     auto,
     54px 54px,
     auto;
+}
+
+.app-shell,
+.topbar,
+main,
+.hero,
+.status-card,
+.demo,
+.track-card,
+.track-copy,
+.play-stage,
+.game-canvas,
+.footer {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .app-shell::before {
@@ -118,6 +143,10 @@ a {
   grid-template-columns: minmax(0, 1.35fr) minmax(19rem, 0.65fr);
   gap: clamp(3rem, 8vw, 8rem);
   align-items: end;
+}
+
+main {
+  z-index: 1;
 }
 
 .eyebrow {
@@ -280,6 +309,194 @@ h1 {
   outline-offset: 4px;
 }
 
+.button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.button--primary {
+  min-width: 10rem;
+  align-self: center;
+  padding: 1rem 1.25rem;
+  border-color: #ec5a3d;
+  color: #f5f1e9;
+  background: #ec5a3d;
+}
+
+.demo {
+  width: min(100% - 2.5rem, 78rem);
+  margin: 0 auto clamp(5rem, 10vw, 9rem);
+}
+
+.track-card {
+  display: grid;
+  padding: clamp(1.25rem, 3vw, 2rem);
+  border: 1px solid rgb(245 241 233 / 16%);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: clamp(1.25rem, 3vw, 2.5rem);
+  align-items: center;
+  background: rgb(19 18 17 / 92%);
+}
+
+.track-art {
+  display: grid;
+  width: clamp(6.5rem, 12vw, 9rem);
+  aspect-ratio: 1;
+  border: 1px solid #ec5a3d;
+  place-content: center;
+  text-align: center;
+  background:
+    repeating-radial-gradient(
+      circle,
+      transparent 0 8px,
+      rgb(236 90 61 / 14%) 9px 10px
+    ),
+    #191715;
+}
+
+.track-art span {
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  font-weight: 700;
+  letter-spacing: -0.06em;
+  line-height: 1;
+}
+
+.track-art small,
+.section-label,
+.track-facts dt,
+.play-controls p,
+.countdown small {
+  color: #9e9a92;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.track-copy h2,
+.game-message h3 {
+  margin: 0;
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  letter-spacing: -0.04em;
+}
+
+.track-copy > p:not(.section-label) {
+  margin: 0.35rem 0 1.25rem;
+  color: #bbb6ac;
+}
+
+.section-label {
+  margin: 0 0 0.45rem;
+  color: #ec5a3d;
+}
+
+.track-facts {
+  display: grid;
+  margin: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem 1.5rem;
+}
+
+.track-facts div {
+  min-width: 0;
+}
+
+.track-facts dt,
+.track-facts dd {
+  margin: 0;
+}
+
+.track-facts dd {
+  margin-top: 0.25rem;
+  color: #d8d3ca;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.play-stage {
+  position: relative;
+  margin-top: 1.5rem;
+  border: 1px solid rgb(245 241 233 / 16%);
+  background: #12110f;
+}
+
+.game-canvas {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+}
+
+.game-canvas canvas {
+  display: block;
+  max-width: 100% !important;
+  max-height: 100% !important;
+}
+
+.countdown {
+  position: absolute;
+  inset: 0 0 4.7rem;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  background: rgb(17 16 15 / 58%);
+  pointer-events: none;
+}
+
+.countdown span {
+  font-size: clamp(5rem, 16vw, 11rem);
+  font-weight: 700;
+  letter-spacing: -0.08em;
+  line-height: 0.85;
+}
+
+.countdown small {
+  margin-top: 1rem;
+  color: #f5f1e9;
+}
+
+.play-controls {
+  display: flex;
+  min-height: 4.7rem;
+  padding: 0.8rem 1rem;
+  border-top: 1px solid rgb(245 241 233 / 16%);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.play-controls p {
+  margin: 0;
+}
+
+.button--hit {
+  min-width: 7rem;
+  border-color: #e7c467;
+  background: #e7c467;
+}
+
+.game-message {
+  margin-top: 1.5rem;
+  padding: clamp(1.25rem, 3vw, 2rem);
+  border: 1px solid rgb(245 241 233 / 16%);
+  background: rgb(19 18 17 / 92%);
+}
+
+.game-message > p:not(.section-label) {
+  margin: 0.6rem 0 0;
+  color: #bbb6ac;
+}
+
+.game-message--success {
+  border-color: rgb(168 220 107 / 45%);
+}
+
+.game-message--error {
+  border-color: rgb(236 90 61 / 60%);
+}
+
+.game-message--error .button {
+  margin-top: 1.1rem;
+}
+
 .footer {
   border-top: 1px solid rgb(245 241 233 / 12%);
 }
@@ -327,6 +544,20 @@ h1 {
     min-height: 16rem;
   }
 
+  .track-card {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .track-card .button--primary {
+    width: 100%;
+    grid-column: 1 / -1;
+  }
+
+  .track-facts {
+    grid-template-columns: 1fr;
+  }
+
   .app-shell::after {
     right: -2rem;
     bottom: 8rem;
@@ -336,6 +567,28 @@ h1 {
     align-items: flex-start;
     flex-direction: column;
     gap: 0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .track-card {
+    grid-template-columns: 1fr;
+  }
+
+  .track-art {
+    width: 6rem;
+  }
+
+  .track-card .button--primary {
+    grid-column: 1;
+  }
+
+  .play-controls {
+    gap: 1rem;
+  }
+
+  .button--hit {
+    min-width: 5.5rem;
   }
 }
 

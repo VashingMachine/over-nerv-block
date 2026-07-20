@@ -11,18 +11,21 @@
     "packages/*"
   ],
   "scripts": {
+    "assets:demo": "node scripts/generate-demo-audio.mjs",
     "build": "npm run build --workspace @rhythm-game/chart-schema && npm run build --workspace @rhythm-game/web",
+    "check:demo-audio": "node scripts/generate-demo-audio.mjs --check",
     "check:licenses": "node scripts/check-node-licenses.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",
     "dev": "npm run dev --workspace @rhythm-game/web",
-    "evidence:capture": "node scripts/capture-story-evidence.mjs",
+    "evidence:capture": "node scripts/capture-story-01-evidence.mjs",
+    "evidence:capture:00": "node scripts/capture-story-evidence.mjs",
     "format:check": "prettier --check .",
     "lint": "eslint apps packages scripts tests",
     "typecheck": "npm run typecheck --workspace @rhythm-game/chart-schema && npm run typecheck --workspace @rhythm-game/web",
     "test": "npm run test:unit",
     "test:unit": "npm run test --workspace @rhythm-game/chart-schema && npm run test --workspace @rhythm-game/web",
     "test:e2e": "npm run build && playwright test",
-    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run check:secrets && npm run check:licenses && npm test && npm run build"
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run check:secrets && npm run check:licenses && npm run check:demo-audio && npm test && npm run build"
   },
   "devDependencies": {
     "@eslint/js": "latest",

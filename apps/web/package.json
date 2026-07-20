@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@rhythm-game/chart-schema": "*",
+    "phaser": "4.2.1",
     "react": "latest",
     "react-dom": "latest"
   },

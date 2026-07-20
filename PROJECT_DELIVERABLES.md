@@ -124,9 +124,9 @@ Library/model research boundary:
 
 The analyzer selection is evidence-driven. Synthetic and permissively licensed corpus metrics, low-end-device latency/memory, bundle size, failure recovery, and correction effort decide whether a candidate advances. A model is not “better” merely because it is ML-based.
 
-## 4. Delivery model: one session, one vertical story
+## 4. Delivery model: one vertical story at a time
 
-A sprint means one bounded agent session that delivers one small, user-observable vertical story.
+A sprint means one bounded, user-observable vertical story. The user has explicitly authorized continuous execution through the roadmap: an agent MAY proceed directly to the next sprint after the current story passes every gate and its atomic commit is created, but stories MUST NOT be combined, reviewed together, or committed together.
 
 Every sprint MUST:
 

@@ -1,0 +1,58 @@
+{
+  "storyId": "01",
+  "previewUrl": "http://127.0.0.1:4173/",
+  "buildIdentifier": "3d57f4ab0d3355ada097e57d7ea51b7317815573",
+  "capturedAt": "2026-07-20T21:52:15.538Z",
+  "previewType": "loopback production build",
+  "artifacts": [
+    {
+      "file": "desktop-idle.png",
+      "scenario": "bundled track metadata and start action",
+      "viewport": "1440x900",
+      "bytes": 347316,
+      "sha256": "a74f1c6c91d88f3cbc69c3a0f7660675c6fd6e17fd08111ef061ad39555d245b"
+    },
+    {
+      "file": "desktop-playing.png",
+      "scenario": "audio-clock gameplay after visible input",
+      "viewport": "1440x900",
+      "bytes": 374451,
+      "sha256": "7dd67be8f1853a54ee10a79eeee1fb6d3f8a3fe786084c7fc0914de359d84345"
+    },
+    {
+      "file": "desktop-complete.png",
+      "scenario": "completed track with replay action",
+      "viewport": "1440x900",
+      "bytes": 361640,
+      "sha256": "436d2a9772fe6329afeec102a34a5d922cafb0d8821ea58de87faae05c685a97"
+    },
+    {
+      "file": "complete-loop.webm",
+      "scenario": "start, countdown, mixed input, playback completion, and replay affordance",
+      "viewport": "1440x900",
+      "bytes": 891649,
+      "sha256": "9db825b459b4ed27b9d50ef3cf681bec84ab0a12b3a14378389e8f3bd91eb5c2"
+    },
+    {
+      "file": "mobile-playing.png",
+      "scenario": "touch-sized active gameplay and controls",
+      "viewport": "412x915",
+      "bytes": 773056,
+      "sha256": "17ef19df45500786bfea15395b17eed3e546cfacdb78f54c1f07a1922945ebc0"
+    },
+    {
+      "file": "audio-unavailable.png",
+      "scenario": "failed audio request with concise retry action",
+      "viewport": "1280x720",
+      "bytes": 328075,
+      "sha256": "5f54d35b05e1dce099ba90617fc9248e1dd3170c4915150203f91d596c974040"
+    },
+    {
+      "file": "audio-recovered.png",
+      "scenario": "successful audio retry enters countdown",
+      "viewport": "1280x720",
+      "bytes": 320895,
+      "sha256": "055fb473345c6eddd272ed364b0d3060f724bc81b2e9e301ac03d325ac73fbca"
+    }
+  ]
+}

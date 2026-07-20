@@ -1,4 +1,5 @@
 import { SystemStatus } from "./components/SystemStatus";
+import { DemoGame } from "./demo/DemoGame";
 import { useBuildManifest } from "./hooks/useBuildManifest";
 
 const buildId = import.meta.env.VITE_BUILD_ID ?? "development";
@@ -17,26 +18,28 @@ export function App() {
         <span className="build-label">Build {buildId.slice(0, 12)}</span>
       </header>
 
-      <main className="hero">
-        <div className="eyebrow">
-          <span>01</span>
-          <span>Pages heartbeat</span>
-        </div>
-        <div className="hero-copy">
-          <p className="kicker">Your music. Your timing.</p>
-          <h1>Make every beat playable.</h1>
-          <p className="lede">
-            A browser-first rhythm game that will turn your own music into a
-            chart without uploading it. The delivery runway is live; the first
-            playable pulse comes next.
-          </p>
-        </div>
-        <SystemStatus state={systemState} onRetry={retry} />
+      <main>
+        <section className="hero">
+          <div className="eyebrow">
+            <span>01</span>
+            <span>First playable pulse</span>
+          </div>
+          <div className="hero-copy">
+            <p className="kicker">Your music. Your timing.</p>
+            <h1>Make every beat playable.</h1>
+            <p className="lede">
+              Start with an original eight-second track. Follow the notes and
+              press Space, tap the lane, or use the Hit button.
+            </p>
+          </div>
+          <SystemStatus state={systemState} onRetry={retry} />
+        </section>
+        <DemoGame />
       </main>
 
       <footer className="footer">
-        <p>Stage 00 / Delivery runway</p>
-        <p>Audio stays private by default.</p>
+        <p>Stage 01 / Bundled demo</p>
+        <p>Runs locally in your browser.</p>
       </footer>
     </div>
   );
