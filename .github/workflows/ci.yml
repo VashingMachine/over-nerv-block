@@ -1,0 +1,71 @@
+name: Verify
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "story/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VITE_BUILD_ID: ${{ github.sha }}
+      VITE_DEPLOY_ENV: candidate
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+      - run: npm run verify
+      - run: npm audit --audit-level=high
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+
+      - name: Capture production-preview evidence
+        env:
+          EVIDENCE_BASE_URL: http://127.0.0.1:4173/
+          EVIDENCE_BUILD_ID: ${{ github.sha }}
+        run: |
+          npm run preview --workspace @rhythm-game/web -- --host 127.0.0.1 --port 4173 &
+          preview_pid=$!
+          trap 'kill "$preview_pid"' EXIT
+          curl --fail --retry 8 --retry-all-errors --retry-delay 1 "$EVIDENCE_BASE_URL"
+          npm run evidence:capture
+
+      - name: Upload candidate build and product evidence
+        id: candidate-artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sprint-00-candidate-${{ github.sha }}
+          path: |
+            apps/web/dist
+            story/00-system-heartbeat/evidence
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish candidate artifact identity
+        run: |
+          echo "### Sprint 00 candidate" >> "$GITHUB_STEP_SUMMARY"
+          echo "Build: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "Artifact SHA-256: ${{ steps.candidate-artifact.outputs.artifact-digest }}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload failed browser report
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-report
+          path: playwright-report
+          if-no-files-found: ignore
+          retention-days: 7

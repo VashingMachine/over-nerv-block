@@ -1,0 +1,44 @@
+{
+  "storyId": "00",
+  "previewUrl": "http://127.0.0.1:4173/",
+  "buildIdentifier": "68b3429df95a7eb9ef29ea124e592588e5bf353e",
+  "capturedAt": "2026-07-20T20:44:00.002Z",
+  "previewType": "loopback production build",
+  "artifacts": [
+    {
+      "file": "desktop.png",
+      "scenario": "healthy system on desktop",
+      "viewport": "1440x900",
+      "bytes": 313840,
+      "sha256": "f6b87e70e5b0ed57c5c0bff16fa49748dfcf39572cc1101df64d8a40fc49bc84"
+    },
+    {
+      "file": "demo.webm",
+      "scenario": "healthy system end-to-end load",
+      "viewport": "1440x900",
+      "bytes": 93892,
+      "sha256": "e1ed0272db3e6a27fa72fc78feda284cfffda13097f826c37b2adc13eb494bab"
+    },
+    {
+      "file": "mobile.png",
+      "scenario": "healthy system on mobile",
+      "viewport": "412x915",
+      "bytes": 693004,
+      "sha256": "0bd595169925630191d926614ee3497c6b98691260ac00fb7d483a81f09e3a23"
+    },
+    {
+      "file": "unavailable.png",
+      "scenario": "build-manifest connection failure with retry action",
+      "viewport": "1280x720",
+      "bytes": 269015,
+      "sha256": "36229364d1ecbb100a78418893b17e176c500502ac1bcf326bc4f1034684749d"
+    },
+    {
+      "file": "recovered.png",
+      "scenario": "successful retry after build-manifest recovery",
+      "viewport": "1280x720",
+      "bytes": 271984,
+      "sha256": "54c3d97606ed277d07fcd8c7518f987173b22f29a79aa8c0e1a7e6edd6de0782"
+    }
+  ]
+}

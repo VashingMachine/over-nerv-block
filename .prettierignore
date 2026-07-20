@@ -1,0 +1,8 @@
+dist
+node_modules
+.pytest_cache
+.venv
+playwright-report
+test-results
+package-lock.json
+story/**/evidence/*.json
