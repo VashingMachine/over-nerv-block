@@ -110,6 +110,20 @@ describe("generated difficulty picker", () => {
     expect(screen.getByText("Your local song · Hard")).toBeVisible();
   });
 
+  it("restores every chart summary without inventing playable audio", () => {
+    render(<GeneratedDifficultyPicker analysis={analysisFixture()} />);
+
+    expect(
+      screen.getByRole("heading", { name: "Choose your difficulty" }),
+    ).toBeVisible();
+    expect(screen.getByTestId("generated-chart")).toHaveTextContent("4 notes");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Audio was never saved. Select and analyze the local song again",
+    );
+    expect(screen.queryByTestId("generated-rhythm-game")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Start .* chart/ })).toBeNull();
+  });
+
   it("shows a recoverable message instead of an unsafe play action", () => {
     const base = analysisFixture();
     render(

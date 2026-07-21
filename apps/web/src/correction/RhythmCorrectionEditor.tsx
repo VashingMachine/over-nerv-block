@@ -25,8 +25,8 @@ import {
 
 interface RhythmCorrectionEditorProps {
   readonly analysis: QualityRhythmAnalysis;
-  readonly audioUrl: string;
-  readonly getPreviewTime: () => number;
+  readonly audioUrl?: string;
+  readonly getPreviewTime?: () => number;
   readonly storage?: Storage | null;
 }
 
@@ -44,7 +44,7 @@ function browserStorage(): Storage | null {
 function persistenceCopy(state: PersistenceState): string {
   switch (state) {
     case "saved":
-      return "Corrections saved locally. Audio and analysis were not saved.";
+      return "Corrections saved locally in a separate record. Audio was not saved; completed-analysis recovery is managed separately.";
     case "loaded":
       return "Saved corrections restored for this matching analysis.";
     case "migrated":
@@ -54,7 +54,7 @@ function persistenceCopy(state: PersistenceState): string {
     case "unavailable":
       return "Browser storage is unavailable. Corrections still work in this tab but will not survive reload.";
     case "empty":
-      return "No correction is saved. Audio and analyzer output are never stored here.";
+      return "No correction is saved. This correction record never contains audio or analyzer output.";
   }
 }
 
@@ -169,6 +169,12 @@ export function RhythmCorrectionEditor({
   };
 
   const recordTap = () => {
+    if (!audioUrl || !getPreviewTime) {
+      setErrorMessage(
+        "Select and analyze the local song again before recording preview taps.",
+      );
+      return;
+    }
     const timeSeconds = Math.round(getPreviewTime() * 1_000) / 1_000;
     if (
       !Number.isFinite(timeSeconds) ||
@@ -359,12 +365,21 @@ export function RhythmCorrectionEditor({
 
         <fieldset>
           <legend>Tap tempo and phase</legend>
-          <p>Play the private preview, then tap 3–16 steady beats.</p>
+          <p>
+            {audioUrl
+              ? "Play the private preview, then tap 3–16 steady beats."
+              : "Preview tapping is unavailable because audio was never saved."}
+          </p>
           <p>
             <strong>{tapTimes.length}</strong> taps recorded
           </p>
           <div className="correction-inline-actions">
-            <button className="button" type="button" onClick={recordTap}>
+            <button
+              className="button"
+              type="button"
+              disabled={!audioUrl}
+              onClick={recordTap}
+            >
               Tap beat
             </button>
             <button className="button" type="button" onClick={applyTaps}>

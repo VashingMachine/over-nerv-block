@@ -324,21 +324,45 @@ describe("beat-analysis worker boundary", () => {
   });
 
   it("converts worker errors without exposing platform details", async () => {
-    const worker = new FakeWorker();
+    const workers = [new FakeWorker(), new FakeWorker()];
+    const createWorker = vi
+      .fn()
+      .mockReturnValueOnce(workers[0])
+      .mockReturnValueOnce(workers[1]);
     const source = decodedAudio();
+    const states = vi.fn();
     const resultPromise = analyzeDecodedAudioInWorker(source.decoded, {
       signal: new AbortController().signal,
       onProgress: vi.fn(),
-      createWorker: () => worker,
+      onStateChange: states,
+      createWorker,
     });
 
-    const event = worker.emitError();
+    const firstEvent = workers[0]!.emitError();
+    await vi.waitFor(() => expect(createWorker).toHaveBeenCalledTimes(2));
+    expect(workers[1]!.request().requestId).not.toBe(
+      workers[0]!.request().requestId,
+    );
+    expect(
+      Array.from(new Float32Array(workers[1]!.request().input.channels[0]!)),
+    ).toEqual(Array.from(source.channelData[0]!));
+    const secondEvent = workers[1]!.emitError();
 
     await expect(resultPromise).rejects.toMatchObject({
       code: "worker_failed",
       message: "Local beat analysis stopped unexpectedly. Try again.",
     });
-    expect(event.defaultPrevented).toBe(true);
+    expect(firstEvent.defaultPrevented).toBe(true);
+    expect(secondEvent.defaultPrevented).toBe(true);
+    expect(workers[0]!.terminate).toHaveBeenCalledOnce();
+    expect(workers[1]!.terminate).toHaveBeenCalledOnce();
+    expect(states.mock.calls.map(([state]) => state.phase)).toEqual([
+      "preparing",
+      "running",
+      "retrying",
+      "running",
+      "failed",
+    ]);
   });
 
   it("maps declared analysis failures to stable user messages", async () => {
@@ -369,21 +393,195 @@ describe("beat-analysis worker boundary", () => {
     worker.postMessage = vi.fn(() => {
       throw new Error("private post detail");
     });
+    const createWorker = vi.fn(() => worker);
     const source = decodedAudio();
 
     await expect(
       analyzeDecodedAudioInWorker(source.decoded, {
         signal: new AbortController().signal,
         onProgress: vi.fn(),
-        createWorker: () => worker,
+        createWorker,
       }),
     ).rejects.toMatchObject({
       code: "worker_failed",
       message: "Local beat analysis stopped unexpectedly. Try again.",
     });
     expect(source.release).toHaveBeenCalledOnce();
+    expect(createWorker).toHaveBeenCalledOnce();
     expect(worker.terminate).toHaveBeenCalledOnce();
     expect(worker.listenerCount()).toBe(0);
+  });
+
+  it("does not retry when transfer-channel cloning fails", async () => {
+    const worker = new FakeWorker();
+    const createWorker = vi.fn(() => worker);
+    const source = decodedAudio();
+    const slice = vi
+      .spyOn(Float32Array.prototype, "slice")
+      .mockImplementationOnce(() => {
+        throw new Error("private channel detail");
+      });
+
+    try {
+      await expect(
+        analyzeDecodedAudioInWorker(source.decoded, {
+          signal: new AbortController().signal,
+          onProgress: vi.fn(),
+          createWorker,
+        }),
+      ).rejects.toMatchObject({
+        code: "worker_failed",
+        message: "Local beat analysis stopped unexpectedly. Try again.",
+      });
+    } finally {
+      slice.mockRestore();
+    }
+
+    expect(source.release).toHaveBeenCalledOnce();
+    expect(createWorker).toHaveBeenCalledOnce();
+    expect(worker.terminate).toHaveBeenCalledOnce();
+    expect(worker.listenerCount()).toBe(0);
+  });
+
+  it("times out each fresh worker once, retries once, and clears all resources", async () => {
+    vi.useFakeTimers();
+    try {
+      const workers = [new FakeWorker(), new FakeWorker()];
+      const createWorker = vi
+        .fn()
+        .mockReturnValueOnce(workers[0])
+        .mockReturnValueOnce(workers[1]);
+      const source = decodedAudio();
+      const states = vi.fn();
+      const resultPromise = analyzeDecodedAudioInWorker(source.decoded, {
+        signal: new AbortController().signal,
+        onProgress: vi.fn(),
+        onStateChange: states,
+        createWorker,
+        attemptTimeoutMilliseconds: 10,
+      });
+      const rejection = expect(resultPromise).rejects.toMatchObject({
+        code: "analysis_timeout",
+        message:
+          "Local beat analysis took too long. Try again or choose a shorter track.",
+      });
+
+      await vi.advanceTimersByTimeAsync(10);
+      expect(createWorker).toHaveBeenCalledTimes(2);
+      await vi.advanceTimersByTimeAsync(10);
+      await rejection;
+
+      workers.forEach((worker) => {
+        expect(worker.terminate).toHaveBeenCalledOnce();
+        expect(worker.listenerCount()).toBe(0);
+      });
+      expect(states.mock.calls.map(([state]) => state.phase)).toEqual([
+        "preparing",
+        "running",
+        "retrying",
+        "running",
+        "timed_out",
+      ]);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("ignores late and duplicate terminal messages across a fresh retry", async () => {
+    const workers = [new FakeWorker(), new FakeWorker()];
+    const createWorker = vi
+      .fn()
+      .mockReturnValueOnce(workers[0])
+      .mockReturnValueOnce(workers[1]);
+    const source = decodedAudio();
+    const resultPromise = analyzeDecodedAudioInWorker(source.decoded, {
+      signal: new AbortController().signal,
+      onProgress: vi.fn(),
+      createWorker,
+    });
+
+    workers[0]!.emitError();
+    await vi.waitFor(() => expect(createWorker).toHaveBeenCalledTimes(2));
+    workers[0]!.emitMessage({
+      protocolVersion: beatAnalysisProtocolVersion,
+      type: "complete",
+      requestId: workers[0]!.request().requestId,
+      result: validGrid(),
+    });
+    const activeRequestId = workers[1]!.request().requestId;
+    workers[1]!.emitMessage({
+      protocolVersion: beatAnalysisProtocolVersion,
+      type: "complete",
+      requestId: activeRequestId,
+      result: validGrid(),
+    });
+    workers[1]!.emitMessage({
+      protocolVersion: beatAnalysisProtocolVersion,
+      type: "error",
+      requestId: activeRequestId,
+      code: "analysis_failed",
+    });
+
+    await expect(resultPromise).resolves.toEqual(validGrid());
+    expect(workers[0]!.terminate).toHaveBeenCalledOnce();
+    expect(workers[1]!.terminate).toHaveBeenCalledOnce();
+  });
+
+  it("does not retry a progress-callback failure and cleans the worker", async () => {
+    const worker = new FakeWorker();
+    const createWorker = vi.fn(() => worker);
+    const source = decodedAudio();
+    const resultPromise = analyzeDecodedAudioInWorker(source.decoded, {
+      signal: new AbortController().signal,
+      onProgress: () => {
+        throw new Error("private UI callback detail");
+      },
+      createWorker,
+    });
+
+    worker.emitMessage({
+      protocolVersion: beatAnalysisProtocolVersion,
+      type: "progress",
+      requestId: worker.request().requestId,
+      progress: { stage: "tempo", percent: 70 },
+    });
+
+    await expect(resultPromise).rejects.toMatchObject({
+      code: "worker_failed",
+      message: "Local beat analysis stopped unexpectedly. Try again.",
+    });
+    expect(createWorker).toHaveBeenCalledOnce();
+    expect(worker.terminate).toHaveBeenCalledOnce();
+    expect(worker.listenerCount()).toBe(0);
+  });
+
+  it("cancels the fresh retry without starting a third worker", async () => {
+    const workers = [new FakeWorker(), new FakeWorker()];
+    const createWorker = vi
+      .fn()
+      .mockReturnValueOnce(workers[0])
+      .mockReturnValueOnce(workers[1]);
+    const controller = new AbortController();
+    const source = decodedAudio();
+    const resultPromise = analyzeDecodedAudioInWorker(source.decoded, {
+      signal: controller.signal,
+      onProgress: vi.fn(),
+      createWorker,
+    });
+
+    workers[0]!.emitError();
+    await vi.waitFor(() => expect(createWorker).toHaveBeenCalledTimes(2));
+    controller.abort();
+
+    await expect(resultPromise).rejects.toMatchObject({ name: "AbortError" });
+    expect(createWorker).toHaveBeenCalledTimes(2);
+    expect(workers[0]!.terminate).toHaveBeenCalledOnce();
+    expect(workers[1]!.terminate).toHaveBeenCalledOnce();
+    expect(workers[1]!.messages.at(-1)!.message).toMatchObject({
+      type: "cancel",
+      requestId: workers[1]!.request().requestId,
+    });
   });
 
   it("releases missing samples without creating a worker", async () => {

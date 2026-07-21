@@ -17,6 +17,13 @@ import {
 import type { AnalyzeDecodedAudioOptions } from "../analysis/workerBeatAnalyzer";
 import { BeatAnalysisBoundaryError } from "../analysis/workerBeatAnalyzer";
 import { playbackCoordinator } from "../demo/playbackCoordinator";
+import { correctionStorageKey } from "../correction/correctionStore";
+import { createCorrectionDocument } from "../correction/rhythmCorrection";
+import {
+  createBeatGridCheckpoint,
+  type BeatGridRecoveryStore,
+  type RecoveryReadResult,
+} from "../recovery/beatGridRecoveryStore";
 
 import { LocalAudioPicker } from "./LocalAudioPicker";
 import { LocalAudioError } from "./filePolicy";
@@ -93,6 +100,19 @@ function validGrid(): QualityRhythmAnalysis {
   };
 }
 
+function playableGrid(): QualityRhythmAnalysis {
+  const grid = validGrid();
+  return {
+    ...grid,
+    beats: Array.from({ length: 13 }, (_, index) => ({
+      timeSeconds: 1 + index * 0.5,
+      strength: index % 4 === 0 ? 1 : 0.7,
+      isDownbeat: index % 4 === 0,
+      positionInBar: (index % 4) + 1,
+    })),
+  };
+}
+
 function uncertainGrid(): QualityRhythmAnalysis {
   const grid = validGrid();
   return {
@@ -132,6 +152,28 @@ function pickerProps() {
     minimumProgressMilliseconds: 0,
     revokeObjectURL: vi.fn(),
     workerAvailable: true,
+  };
+}
+
+function recoveryStore(result: RecoveryReadResult) {
+  const readLatest = vi.fn<() => Promise<RecoveryReadResult>>(
+    async () => result,
+  );
+  const saveLatest = vi.fn<BeatGridRecoveryStore["saveLatest"]>(
+    async () => "saved",
+  );
+  const deleteLatest = vi.fn<BeatGridRecoveryStore["deleteLatest"]>(
+    async () => "cleared",
+  );
+  return {
+    store: {
+      readLatest,
+      saveLatest,
+      deleteLatest,
+    } satisfies BeatGridRecoveryStore,
+    readLatest,
+    saveLatest,
+    deleteLatest,
   };
 }
 
@@ -749,6 +791,225 @@ describe("private local-audio picker", () => {
     await act(async () => resolveDecode?.(handle.decoded));
     await waitFor(() => expect(handle.release).toHaveBeenCalledOnce());
     expect(props.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it("hydrates a completed grid without audio, preview taps, or a play action", async () => {
+    const recovery = recoveryStore({
+      status: "loaded",
+      checkpoint: createBeatGridCheckpoint(playableGrid(), () => 1234),
+    });
+    render(
+      <LocalAudioPicker {...pickerProps()} recoveryStore={recovery.store} />,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Recovered beat grid" }),
+    ).toBeVisible();
+    expect(screen.getByTestId("recovered-grid")).toHaveTextContent(
+      "Recovered from this device",
+    );
+    expect(screen.getAllByText(/Audio was never saved/).length).toBeGreaterThan(
+      1,
+    );
+    expect(screen.getByRole("button", { name: "Tap beat" })).toBeDisabled();
+    expect(screen.queryByLabelText("Local audio preview")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Start .* chart/ })).toBeNull();
+    expect(
+      screen.getByRole("heading", { name: "Choose your difficulty" }),
+    ).toBeVisible();
+    expect(recovery.readLatest).toHaveBeenCalledOnce();
+  });
+
+  it("checkpoints only completion and returns it after current audio is cleared", async () => {
+    const recovery = recoveryStore({ status: "empty" });
+    const props = pickerProps();
+    const handle = decodedAudio();
+    const analyzeBeats = vi.fn(async (decoded: DisposableDecodedAudio) => {
+      decoded.release();
+      return validGrid();
+    });
+    render(
+      <LocalAudioPicker
+        {...props}
+        recoveryStore={recovery.store}
+        decodeAudio={vi.fn().mockResolvedValue(handle.decoded)}
+        analyzeBeats={analyzeBeats}
+      />,
+    );
+
+    select(selectedFile());
+    await screen.findByText("Ready for analysis");
+    fireEvent.click(screen.getByRole("button", { name: "Analyze beats" }));
+    await screen.findByText("Quality beat and downbeat grid");
+    await waitFor(() =>
+      expect(recovery.saveLatest).toHaveBeenCalledWith(validGrid()),
+    );
+    expect(screen.getByText(/Completed beat grid saved/)).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear selection" }));
+    expect(
+      screen.getByRole("heading", { name: "Recovered beat grid" }),
+    ).toBeVisible();
+    expect(screen.queryByLabelText("Local audio preview")).toBeNull();
+    expect(recovery.deleteLatest).not.toHaveBeenCalled();
+  });
+
+  it("retains the last recovered grid through replacement analysis cancellation", async () => {
+    const recovery = recoveryStore({
+      status: "loaded",
+      checkpoint: createBeatGridCheckpoint(validGrid()),
+    });
+    const props = pickerProps();
+    const handle = decodedAudio();
+    let options: AnalyzeDecodedAudioOptions | undefined;
+    const analyzeBeats = vi.fn(
+      (
+        decoded: DisposableDecodedAudio,
+        received: AnalyzeDecodedAudioOptions,
+      ) => {
+        decoded.release();
+        options = received;
+        return new Promise<QualityRhythmAnalysis>(() => undefined);
+      },
+    );
+    render(
+      <LocalAudioPicker
+        {...props}
+        recoveryStore={recovery.store}
+        decodeAudio={vi.fn().mockResolvedValue(handle.decoded)}
+        analyzeBeats={analyzeBeats}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "Recovered beat grid" });
+    select(selectedFile());
+    await screen.findByText("Ready for analysis");
+    expect(
+      screen.getByRole("heading", { name: "Recovered beat grid" }),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Analyze beats" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel analysis" }));
+
+    expect(options?.signal.aborted).toBe(true);
+    expect(
+      screen.getByRole("heading", { name: "Recovered beat grid" }),
+    ).toBeVisible();
+    expect(recovery.saveLatest).not.toHaveBeenCalled();
+  });
+
+  it("shows the bounded fresh-worker attempt in progress", async () => {
+    const recovery = recoveryStore({ status: "empty" });
+    const props = pickerProps();
+    const handle = decodedAudio();
+    let finish: ((grid: QualityRhythmAnalysis) => void) | undefined;
+    const analyzeBeats = vi.fn(
+      (
+        decoded: DisposableDecodedAudio,
+        options: AnalyzeDecodedAudioOptions,
+      ) => {
+        decoded.release();
+        options.onStateChange?.({
+          phase: "retrying",
+          attempt: 2,
+          maximumAttempts: 2,
+          cause: "worker_failed",
+        });
+        options.onStateChange?.({
+          phase: "running",
+          attempt: 2,
+          maximumAttempts: 2,
+          requestId: "attempt-2",
+        });
+        return new Promise<QualityRhythmAnalysis>((resolve) => {
+          finish = resolve;
+        });
+      },
+    );
+    render(
+      <LocalAudioPicker
+        {...props}
+        recoveryStore={recovery.store}
+        decodeAudio={vi.fn().mockResolvedValue(handle.decoded)}
+        analyzeBeats={analyzeBeats}
+      />,
+    );
+
+    select(selectedFile());
+    await screen.findByText("Ready for analysis");
+    fireEvent.click(screen.getByRole("button", { name: "Analyze beats" }));
+    expect(await screen.findByText(/attempt 2 of 2/)).toBeVisible();
+    await act(async () => finish?.(validGrid()));
+    expect(
+      await screen.findByText("Quality beat and downbeat grid"),
+    ).toBeVisible();
+  });
+
+  it("forgets only the recovery checkpoint", async () => {
+    const recovery = recoveryStore({
+      status: "loaded",
+      checkpoint: createBeatGridCheckpoint(validGrid()),
+    });
+    render(
+      <LocalAudioPicker {...pickerProps()} recoveryStore={recovery.store} />,
+    );
+
+    await screen.findByRole("heading", { name: "Recovered beat grid" });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Forget recovered grid" }),
+    );
+    await waitFor(() => expect(recovery.deleteLatest).toHaveBeenCalledOnce());
+    expect(
+      screen.queryByRole("heading", { name: "Recovered beat grid" }),
+    ).toBeNull();
+    expect(
+      screen.getByText(/Separate corrections were not changed/),
+    ).toBeVisible();
+  });
+
+  it("keeps a checkpoint visible and retryable when forgetting is denied", async () => {
+    const recovery = recoveryStore({
+      status: "loaded",
+      checkpoint: createBeatGridCheckpoint(validGrid()),
+    });
+    const correction = createCorrectionDocument(validGrid());
+    const correctionKey = correctionStorageKey(correction.sourceFingerprint);
+    const serializedCorrection = JSON.stringify({
+      ...correction,
+      revision: 1,
+      operations: [{ kind: "offset", milliseconds: 50 }],
+    });
+    localStorage.setItem(correctionKey, serializedCorrection);
+    recovery.deleteLatest.mockResolvedValueOnce("unavailable");
+    render(
+      <LocalAudioPicker {...pickerProps()} recoveryStore={recovery.store} />,
+    );
+
+    await screen.findByRole("heading", { name: "Recovered beat grid" });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Forget recovered grid" }),
+    );
+
+    expect(await screen.findByText(/Could not forget/)).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Recovered beat grid" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Forget recovered grid" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByText(/Separate corrections were not changed/),
+    ).toBeVisible();
+    expect(localStorage.getItem(correctionKey)).toBe(serializedCorrection);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Forget recovered grid" }),
+    );
+    await waitFor(() => expect(recovery.deleteLatest).toHaveBeenCalledTimes(2));
+    expect(
+      screen.queryByRole("heading", { name: "Recovered beat grid" }),
+    ).toBeNull();
+    expect(localStorage.getItem(correctionKey)).toBe(serializedCorrection);
+    localStorage.removeItem(correctionKey);
   });
 
   it("disables selection when required browser APIs are unavailable", () => {

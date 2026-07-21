@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   baselineAnalyzerVersion,
+  beatGridCheckpointSchema,
+  beatGridCheckpointVersion,
   beatGridSchema,
   buildManifestSchema,
   chartGenerationContractVersion,
@@ -592,6 +594,94 @@ describe("shared contracts", () => {
     expect(document.operations).toHaveLength(3);
     expect(JSON.stringify(document)).not.toContain("beats");
     expect(JSON.stringify(document)).not.toContain("filename");
+  });
+
+  it("accepts only a strict filename-free completed-grid checkpoint", () => {
+    const checkpoint = beatGridCheckpointSchema.parse({
+      checkpointVersion: beatGridCheckpointVersion,
+      kind: "completed_beat_grid_checkpoint",
+      savedAtEpochMs: 1_721_534_400_000,
+      sourceFingerprint: "abc123",
+      grid: validQualityAnalysis(),
+    });
+
+    expect(checkpoint.grid.kind).toBe("quality_rhythm_analysis");
+    expect(JSON.stringify(checkpoint)).not.toMatch(
+      /filename|mime|objecturl|audio bytes|generated_rhythm_chart/i,
+    );
+    expect(() =>
+      beatGridCheckpointSchema.parse({
+        ...checkpoint,
+        filename: "private.wav",
+      }),
+    ).toThrow();
+    expect(() =>
+      beatGridCheckpointSchema.parse({
+        ...checkpoint,
+        checkpointVersion: 2,
+      }),
+    ).toThrow();
+    expect(() =>
+      beatGridCheckpointSchema.parse({
+        ...checkpoint,
+        sourceFingerprint: "not a fingerprint!",
+      }),
+    ).toThrow();
+    expect(() =>
+      beatGridCheckpointSchema.parse({
+        ...checkpoint,
+        grid: { ...checkpoint.grid, filename: "private.wav" },
+      }),
+    ).toThrow();
+    expect(() =>
+      beatGridCheckpointSchema.parse({
+        ...checkpoint,
+        grid: {
+          ...checkpoint.grid,
+          confidence: {
+            ...checkpoint.grid.confidence,
+            privateRuntime: "retained",
+          },
+        },
+      }),
+    ).toThrow();
+    expect(() =>
+      beatGridCheckpointSchema.parse({
+        ...checkpoint,
+        grid: {
+          ...checkpoint.grid,
+          tempoCandidates: checkpoint.grid.tempoCandidates.map(
+            (candidate, index) =>
+              index === 0
+                ? { ...candidate, privateRuntime: "retained" }
+                : candidate,
+          ),
+        },
+      }),
+    ).toThrow();
+    expect(() =>
+      beatGridCheckpointSchema.parse({
+        ...checkpoint,
+        grid: {
+          ...checkpoint.grid,
+          baselineComparison: {
+            ...checkpoint.grid.baselineComparison,
+            privateRuntime: "retained",
+          },
+        },
+      }),
+    ).toThrow();
+    expect(() =>
+      beatGridCheckpointSchema.parse({
+        ...checkpoint,
+        grid: {
+          ...checkpoint.grid,
+          beats: checkpoint.grid.beats.map((beat, index) =>
+            index === 0 ? { ...beat, privateRuntime: "retained" } : beat,
+          ),
+        },
+      }),
+    ).toThrow();
   });
 
   it.each([

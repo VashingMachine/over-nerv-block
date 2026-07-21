@@ -576,6 +576,41 @@ h1 {
   border-color: rgb(168 220 107 / 52%);
 }
 
+.recovery-status {
+  color: #e7c467;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.recovered-grid {
+  min-width: 0;
+  padding: clamp(1.25rem, 3vw, 2.25rem);
+  border: 1px solid rgb(168 220 107 / 52%);
+  grid-column: 1 / -1;
+  background:
+    linear-gradient(135deg, rgb(168 220 107 / 7%), transparent 34%),
+    rgb(19 18 17 / 96%);
+}
+
+.recovered-grid > h3 {
+  margin: 0;
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  letter-spacing: -0.04em;
+}
+
+.recovered-grid__audio-notice {
+  max-width: 52rem;
+  color: #d8d3ca;
+  line-height: 1.55;
+}
+
+.recovered-grid > [data-testid="beat-grid"] {
+  margin-top: 1.5rem;
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  border: 1px solid rgb(231 196 103 / 42%);
+  background: #141311;
+}
+
 .local-audio__status-label {
   margin: 0 0 0.6rem;
   color: #ec5a3d;
@@ -1043,6 +1078,24 @@ h1 {
   margin-bottom: 0;
   color: #9e9a92;
   font-size: 0.78rem;
+}
+
+.generated-chart__audio-needed {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border: 1px solid rgb(231 196 103 / 45%);
+  background: rgb(231 196 103 / 6%);
+}
+
+.generated-chart__audio-needed h5,
+.generated-chart__audio-needed p {
+  margin: 0;
+}
+
+.generated-chart__audio-needed p {
+  margin-top: 0.45rem;
+  color: #bbb6ac;
+  line-height: 1.5;
 }
 
 .generated-difficulties .demo {

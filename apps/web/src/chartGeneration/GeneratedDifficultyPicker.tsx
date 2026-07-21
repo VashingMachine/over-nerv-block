@@ -15,7 +15,7 @@ import {
 
 interface GeneratedDifficultyPickerProps {
   readonly analysis: GenerationRhythmAnalysis;
-  readonly audioUrl: string;
+  readonly audioUrl?: string;
 }
 
 const difficultyCopy: Record<
@@ -81,17 +81,19 @@ export function GeneratedDifficultyPicker({
   const density = Math.round(
     selectedChart.notes.length / (selectedChart.durationSeconds / 60),
   );
-  const experience: RhythmGameExperience = {
-    songId: selectedChart.id,
-    title: `Your local song · ${difficultyCopy[difficulty].name}`,
-    artist: "Analyzed and generated privately in this tab",
-    durationSeconds: selectedChart.durationSeconds,
-    bpm: analysis.tempoBpm,
-    audioUrl,
-    chart: selectedChart,
-    sectionLabel: `${difficultyCopy[difficulty].name} generated chart · one lane`,
-    startLabel: `Start ${difficultyCopy[difficulty].name} chart`,
-  };
+  const experience: RhythmGameExperience | null = audioUrl
+    ? {
+        songId: selectedChart.id,
+        title: `Your local song · ${difficultyCopy[difficulty].name}`,
+        artist: "Analyzed and generated privately in this tab",
+        durationSeconds: selectedChart.durationSeconds,
+        bpm: analysis.tempoBpm,
+        audioUrl,
+        chart: selectedChart,
+        sectionLabel: `${difficultyCopy[difficulty].name} generated chart · one lane`,
+        startLabel: `Start ${difficultyCopy[difficulty].name} chart`,
+      }
+    : null;
 
   return (
     <section
@@ -185,7 +187,17 @@ export function GeneratedDifficultyPicker({
         </p>
       </div>
 
-      <RhythmGame key={selectedChart.id} experience={experience} />
+      {experience ? (
+        <RhythmGame key={selectedChart.id} experience={experience} />
+      ) : (
+        <div className="generated-chart__audio-needed" role="status">
+          <h5>Audio needed to play</h5>
+          <p>
+            Audio was never saved. Select and analyze the local song again to
+            play this recovered chart.
+          </p>
+        </div>
+      )}
     </section>
   );
 }

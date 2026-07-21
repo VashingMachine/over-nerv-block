@@ -212,7 +212,10 @@ test("player completes and tears down a generated local chart", async ({
         : [],
     localStorageKeys: Object.keys(localStorage),
   }));
-  expect(localState).toEqual({ databaseNames: [], localStorageKeys: [] });
+  expect(localState).toEqual({
+    databaseNames: ["rhythm-game-recovery"],
+    localStorageKeys: [],
+  });
 
   await generated.getByRole("button", { name: "Play again" }).click();
   await expect(generated.getByText("Get ready")).toBeVisible();
@@ -220,7 +223,13 @@ test("player completes and tears down a generated local chart", async ({
   await expect(
     page.getByText("Selection cleared. No audio was retained."),
   ).toBeVisible();
-  await expect(page.getByTestId("generated-difficulties")).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Recovered beat grid" }),
+  ).toBeVisible();
+  await expect(page.getByTestId("generated-difficulties")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Start .* chart/ }),
+  ).toHaveCount(0);
   await expectHorizontalContainment(page);
 });
 

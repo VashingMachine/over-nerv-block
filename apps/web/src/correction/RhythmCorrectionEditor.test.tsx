@@ -105,6 +105,26 @@ describe("rhythm correction workspace", () => {
     expect(screen.queryByText(/revision 1/)).toBeNull();
   });
 
+  it("keeps deterministic editing but disables preview-only actions without audio", () => {
+    render(
+      <RhythmCorrectionEditor analysis={analysis()} storage={localStorage} />,
+    );
+
+    expect(screen.getByRole("button", { name: "Tap beat" })).toBeDisabled();
+    expect(
+      screen.getByText(
+        "Preview tapping is unavailable because audio was never saved.",
+      ),
+    ).toBeVisible();
+    expect(screen.getByText(/Audio was never saved\. Select/)).toBeVisible();
+    fireEvent.change(screen.getByLabelText("Offset in milliseconds"), {
+      target: { value: "20" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Apply offset" }));
+    expect(revision()).toHaveTextContent("1");
+    expect(screen.queryByRole("button", { name: /Start .* chart/ })).toBeNull();
+  });
+
   it("applies, persists, undoes, and resets deterministic offset corrections", () => {
     renderEditor();
     fireEvent.change(screen.getByLabelText("Offset in milliseconds"), {

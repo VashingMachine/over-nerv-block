@@ -11,6 +11,7 @@ export const chartGenerationContractVersion = 1 as const;
 export const correctionEditorVersion = "correction-editor-v1" as const;
 export const correctionContractVersion = 1 as const;
 export const correctionStorageVersion = 1 as const;
+export const beatGridCheckpointVersion = 1 as const;
 export const maximumCorrectionOperations = 256 as const;
 export const chartDifficulties = ["easy", "medium", "hard"] as const;
 export const chartGenerationRules = {
@@ -203,29 +204,37 @@ export type BeatGrid = z.infer<typeof beatGridSchema>;
 
 export const rhythmAnalysisWarningSchema = z.enum(rhythmAnalysisWarningOrder);
 
-export const confidenceComponentsSchema = z.object({
-  tempo: z.number().min(0).max(1),
-  beat: z.number().min(0).max(1),
-  downbeat: z.number().min(0).max(1),
-  agreement: z.number().min(0).max(1),
-  overall: z.number().min(0).max(1),
-});
+export const confidenceComponentsSchema = z
+  .object({
+    tempo: z.number().min(0).max(1),
+    beat: z.number().min(0).max(1),
+    downbeat: z.number().min(0).max(1),
+    agreement: z.number().min(0).max(1),
+    overall: z.number().min(0).max(1),
+  })
+  .strict();
 
-export const qualityBeatPointSchema = beatPointSchema.extend({
-  isDownbeat: z.boolean(),
-  positionInBar: z.number().int().min(1).max(4).nullable(),
-});
+export const qualityBeatPointSchema = beatPointSchema
+  .extend({
+    isDownbeat: z.boolean(),
+    positionInBar: z.number().int().min(1).max(4).nullable(),
+  })
+  .strict();
 
-export const qualityTempoCandidateSchema = tempoCandidateSchema.extend({
-  relation: z.enum(["selected", "half", "double", "alternate"]),
-});
+export const qualityTempoCandidateSchema = tempoCandidateSchema
+  .extend({
+    relation: z.enum(["selected", "half", "double", "alternate"]),
+  })
+  .strict();
 
-export const baselineComparisonSchema = z.object({
-  analyzerVersion: z.literal(baselineAnalyzerVersion),
-  tempoDeltaBpm: z.number().nonnegative(),
-  beatAgreement: z.number().min(0).max(1),
-  fallbackUsed: z.boolean(),
-});
+export const baselineComparisonSchema = z
+  .object({
+    analyzerVersion: z.literal(baselineAnalyzerVersion),
+    tempoDeltaBpm: z.number().nonnegative(),
+    beatAgreement: z.number().min(0).max(1),
+    fallbackUsed: z.boolean(),
+  })
+  .strict();
 
 export const qualityRhythmAnalysisSchema = z
   .object({
@@ -242,6 +251,7 @@ export const qualityRhythmAnalysisSchema = z
     baselineComparison: baselineComparisonSchema,
     beats: z.array(qualityBeatPointSchema).min(2),
   })
+  .strict()
   .superRefine((analysis, context) => {
     analysis.beats.forEach((beat, index) => {
       if (beat.timeSeconds > analysis.durationSeconds) {
@@ -428,6 +438,18 @@ export type ConfidenceComponents = z.infer<typeof confidenceComponentsSchema>;
 export type QualityBeatPoint = z.infer<typeof qualityBeatPointSchema>;
 export type QualityTempoCandidate = z.infer<typeof qualityTempoCandidateSchema>;
 export type QualityRhythmAnalysis = z.infer<typeof qualityRhythmAnalysisSchema>;
+
+export const beatGridCheckpointSchema = z
+  .object({
+    checkpointVersion: z.literal(beatGridCheckpointVersion),
+    kind: z.literal("completed_beat_grid_checkpoint"),
+    savedAtEpochMs: z.number().int().nonnegative(),
+    sourceFingerprint: z.string().regex(/^[0-9a-z]+$/),
+    grid: qualityRhythmAnalysisSchema,
+  })
+  .strict();
+
+export type BeatGridCheckpoint = z.infer<typeof beatGridCheckpointSchema>;
 
 const correctionBeatTimeSchema = z.number().nonnegative();
 

@@ -1,0 +1,119 @@
+{
+  "storyId": "08",
+  "previewUrl": "http://127.0.0.1:4173/",
+  "buildIdentifier": "c8e3c7854dcce907367f91742adc283025ef30d0",
+  "capturedAt": "2026-07-21T06:10:20.964Z",
+  "previewType": "loopback production build",
+  "externalDeployment": "not required",
+  "privacy": "repository-owned synthesized input only; one strict completed-grid checkpoint; no audio, filename, File, MIME metadata, object URL, decoded/worker buffers, generated chart, correction, or result in IndexedDB",
+  "recoveryAssertions": {
+    "maximumWorkerAttempts": 2,
+    "attemptTimeoutMilliseconds": 90000,
+    "automaticCrashRetry": true,
+    "cancellationWithoutCheckpoint": true,
+    "completedCheckpointSaved": true,
+    "checkpointFields": [
+      "checkpointVersion",
+      "grid",
+      "kind",
+      "savedAtEpochMs",
+      "sourceFingerprint"
+    ],
+    "reloadRestoresGrid": true,
+    "reloadRestoresMatchingCorrection": true,
+    "reloadRestoresDifficultySummaries": true,
+    "reloadRestoresAudio": false,
+    "playRequiresReanalysis": true,
+    "priorCheckpointSurvivesFailure": true,
+    "priorCheckpointSurvivesCancellation": true,
+    "storageDeniedNonfatal": true,
+    "forgetDeletesLatest": true,
+    "desktopAndMobileContained": true
+  },
+  "artifacts": [
+    {
+      "file": "desktop-analysis-attempt-1.png",
+      "scenario": "local analysis is visibly bounded as attempt 1 of 2 and remains cancellable",
+      "viewport": "1280x800 analysis section",
+      "bytes": 61625,
+      "sha256": "c6a6b84210d1976b63448221fbecb017e69cebb2443910759edd572eb5221729"
+    },
+    {
+      "file": "desktop-analysis-cancelled.png",
+      "scenario": "cancellation returns to a retryable ready state while retaining only the in-tab preview",
+      "viewport": "1280x800 analysis section",
+      "bytes": 89098,
+      "sha256": "dd4d6a30639af33d3014ed04d477c45fe5085accb3f294866bccbbaf9a3b4f82"
+    },
+    {
+      "file": "desktop-checkpoint-saved.png",
+      "scenario": "a valid completed beat grid is checkpointed while audio remains local to the tab",
+      "viewport": "1280x800 local-song workspace",
+      "bytes": 411493,
+      "sha256": "61c2d18ffb82f276907da86e176b7ca4a2bebf7e9bdc9a95082f3b843cef1e69"
+    },
+    {
+      "file": "desktop-recovered-no-audio.png",
+      "scenario": "reload restores grid, correction, and difficulty summaries while clearly requiring local re-analysis for audio",
+      "viewport": "1280x800 recovered workspace",
+      "bytes": 488569,
+      "sha256": "93c6c4fc5ebff2fbba5399984762ac49706513886344296e47f44303032f2fe4"
+    },
+    {
+      "file": "desktop-failure-retains-grid.png",
+      "scenario": "a new local-analysis failure leaves the previous completed checkpoint reviewable and unchanged",
+      "viewport": "1280x800",
+      "bytes": 780023,
+      "sha256": "48c1f861195d5442ef1b969ce67258e4a55d840c0e06b6ec05f2bff91abac24c"
+    },
+    {
+      "file": "desktop-cancel-retains-grid.png",
+      "scenario": "cancelling replacement analysis preserves the last valid recovered grid",
+      "viewport": "1280x800",
+      "bytes": 811527,
+      "sha256": "fef43644fdb919d9800705c1c6f3ca60ebd34b7af010aa6c3a27cdf1b75b7a2d"
+    },
+    {
+      "file": "desktop-reanalysis-playable.png",
+      "scenario": "only a fresh valid re-analysis binds current-tab audio and restores the play action",
+      "viewport": "1280x800 generated chart",
+      "bytes": 118159,
+      "sha256": "2d689b5ef4d31e75e51e1ff57e6df1e9c345ae32e90d7a59a46fc42906057276"
+    },
+    {
+      "file": "desktop-recovery-forgotten.png",
+      "scenario": "the player can delete the singleton recovery checkpoint without a server or audio cleanup claim",
+      "viewport": "1280x800",
+      "bytes": 383532,
+      "sha256": "e1ca777a7b4ff593467be744ccbf4065aca4ea85297c9711c7c4587b1ffa4d01"
+    },
+    {
+      "file": "recovery-to-play-loop.webm",
+      "scenario": "start, cancel, retry, checkpoint, reload without audio, retained recovery through failure/cancel, re-analysis to play, and forget",
+      "viewport": "1280x800",
+      "bytes": 1161769,
+      "sha256": "1cc562d332ad8ab150b1fde058cb76a3ecbffca078a0d57710e30d9350520a41"
+    },
+    {
+      "file": "desktop-automatic-crash-retry.png",
+      "scenario": "a worker crash is cleaned up and visibly retried once with a fresh attempt 2 of 2",
+      "viewport": "1280x800 analysis section",
+      "bytes": 62590,
+      "sha256": "c7fc485a97892d48dbfe1b6c078f76ae6df2bb5d0498f0b94847c872da0f8b7e"
+    },
+    {
+      "file": "desktop-recovery-storage-denied.png",
+      "scenario": "IndexedDB denial is nonfatal: the in-tab chart remains playable with a truthful reload warning",
+      "viewport": "1280x800 local-song workspace",
+      "bytes": 408924,
+      "sha256": "c4742f9729458b9f332503b662cfecc6007cccf385ae3179f087896da16153ad"
+    },
+    {
+      "file": "mobile-recovered-grid.png",
+      "scenario": "412-pixel recovered grid, correction controls, difficulties, and audio-reselection explanation remain contained",
+      "viewport": "412x915 recovered workspace",
+      "bytes": 1515980,
+      "sha256": "6317b0e25a67a2c374f28d792645173111b569814a68900cf79bb31a6906f765"
+    }
+  ]
+}

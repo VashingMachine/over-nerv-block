@@ -215,27 +215,66 @@ test("player privately prepares and clears a valid local song", async ({
   await expect(
     page.getByText(/Quality interpretation agrees 100% with baseline-dsp-v1/),
   ).toBeVisible();
+  await expect(page.getByText(/Completed beat grid saved/)).toBeVisible();
   await expect(page.getByText(privateFilename)).toHaveCount(0);
   await expectHorizontalContainment(page);
 
-  const persistence = await page.evaluate(async () => ({
-    cacheKeys: "caches" in window ? await caches.keys() : [],
-    databaseNames:
-      typeof indexedDB.databases === "function"
-        ? (await indexedDB.databases()).map((database) => database.name)
-        : [],
-    localStorageKeys: Object.keys(localStorage),
-    registrations:
-      "serviceWorker" in navigator
-        ? (await navigator.serviceWorker.getRegistrations()).length
-        : 0,
-  }));
+  const persistence = await page.evaluate(async () => {
+    const checkpoint = await new Promise<Record<string, unknown>>(
+      (resolve, reject) => {
+        const open = indexedDB.open("rhythm-game-recovery", 1);
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const database = open.result;
+          const transaction = database.transaction(
+            "completed-analysis",
+            "readonly",
+          );
+          const request = transaction
+            .objectStore("completed-analysis")
+            .get("latest");
+          request.onerror = () => reject(request.error);
+          request.onsuccess = () =>
+            resolve(request.result as Record<string, unknown>);
+          transaction.oncomplete = () => database.close();
+        };
+      },
+    );
+    return {
+      cacheKeys: "caches" in window ? await caches.keys() : [],
+      checkpoint,
+      databaseNames:
+        typeof indexedDB.databases === "function"
+          ? (await indexedDB.databases()).map((database) => database.name)
+          : [],
+      localStorageKeys: Object.keys(localStorage),
+      registrations:
+        "serviceWorker" in navigator
+          ? (await navigator.serviceWorker.getRegistrations()).length
+          : 0,
+    };
+  });
   expect(persistence).toEqual({
     cacheKeys: [],
-    databaseNames: [],
+    checkpoint: expect.objectContaining({
+      checkpointVersion: 1,
+      kind: "completed_beat_grid_checkpoint",
+      grid: expect.objectContaining({ kind: "quality_rhythm_analysis" }),
+    }),
+    databaseNames: ["rhythm-game-recovery"],
     localStorageKeys: [],
     registrations: 0,
   });
+  expect(Object.keys(persistence.checkpoint).sort()).toEqual([
+    "checkpointVersion",
+    "grid",
+    "kind",
+    "savedAtEpochMs",
+    "sourceFingerprint",
+  ]);
+  expect(JSON.stringify(persistence.checkpoint)).not.toMatch(
+    new RegExp(`${privateFilename}|blob:|objectUrl|mimeType`, "i"),
+  );
   expect(applicationWrites).toEqual([]);
   expect(consoleMessages.join("\n")).not.toContain(privateFilename);
 
@@ -245,6 +284,13 @@ test("player privately prepares and clears a valid local song", async ({
   ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Ready for analysis" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Recovered beat grid" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Local audio preview")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: /Start .* chart/ }),
   ).toHaveCount(0);
 });
 

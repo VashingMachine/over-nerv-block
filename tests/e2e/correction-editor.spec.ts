@@ -177,7 +177,7 @@ test("player corrects a grid and plays regenerated difficulties", async ({
   expect(privacy.entries[0]![0]).toMatch(/^over-nerv-block:rhythm-correction:/);
   expect(privacy.entries[0]![1]).not.toContain("beats");
   expect(privacy.entries[0]![1]).not.toContain(privateFilename);
-  expect(privacy.databaseNames).toEqual([]);
+  expect(privacy.databaseNames).toEqual(["rhythm-game-recovery"]);
   expect(privacy.cacheKeys).toEqual([]);
   expect(applicationWrites).toEqual([]);
   expect(consoleMessages.join("\n")).not.toContain(privateFilename);
@@ -198,13 +198,26 @@ test("saved corrections restore only after matching local reanalysis", async ({
 
   await page.reload();
   await expect(page.getByText("No song selected")).toBeVisible();
-  await expect(page.getByTestId("correction-editor")).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Recovered beat grid" }),
+  ).toBeVisible();
+  await expect(page.getByTestId("correction-editor")).toBeVisible();
+  await expect(
+    page.getByTestId("correction-editor").locator(".correction-persistence"),
+  ).toContainText("Saved corrections restored for this matching analysis");
+  await expect(
+    page.getByTestId("correction-editor").getByText("Offset +100 ms"),
+  ).toBeVisible();
+  await expect(page.getByLabel("Local audio preview")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: /Start .* chart/ }),
+  ).toHaveCount(0);
   expect(await page.evaluate(() => Object.entries(localStorage))).toEqual(
     saved,
   );
 
   await selectAndAnalyze(page);
-  await expect(editor.getByRole("status")).toContainText(
+  await expect(editor.locator(".correction-persistence")).toContainText(
     "Saved corrections restored for this matching analysis",
   );
   await expect(
@@ -218,9 +231,9 @@ test("saved corrections restore only after matching local reanalysis", async ({
     "private-different-correction.wav",
   );
   const differentEditor = page.getByTestId("correction-editor");
-  await expect(differentEditor.getByRole("status")).toContainText(
-    "No correction is saved",
-  );
+  await expect(
+    differentEditor.locator(".correction-persistence"),
+  ).toContainText("No correction is saved");
   await expect(page.getByText("Offset +100 ms")).toHaveCount(0);
   await expect(page.getByText(privateFilename)).toHaveCount(0);
   await expect(page.getByText("private-different-correction.wav")).toHaveCount(
