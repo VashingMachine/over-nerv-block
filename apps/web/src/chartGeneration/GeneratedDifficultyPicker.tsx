@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import {
   chartDifficulties,
   type ChartDifficulty,
-  type QualityRhythmAnalysis,
+  type GenerationRhythmAnalysis,
 } from "@rhythm-game/chart-schema";
 
 import { RhythmGame, type RhythmGameExperience } from "../demo/DemoGame";
@@ -14,7 +14,7 @@ import {
 } from "./generateDifficultyCharts";
 
 interface GeneratedDifficultyPickerProps {
-  readonly analysis: QualityRhythmAnalysis;
+  readonly analysis: GenerationRhythmAnalysis;
   readonly audioUrl: string;
 }
 
@@ -153,6 +153,15 @@ export function GeneratedDifficultyPicker({
             <dt>Generator</dt>
             <dd>{selectedChart.generatorVersion}</dd>
           </div>
+          {selectedChart.correction ? (
+            <div>
+              <dt>Correction</dt>
+              <dd>
+                revision {selectedChart.correction.revision} ·{" "}
+                {selectedChart.correction.editorVersion}
+              </dd>
+            </div>
+          ) : null}
         </dl>
         <div
           className="generated-chart__timeline"

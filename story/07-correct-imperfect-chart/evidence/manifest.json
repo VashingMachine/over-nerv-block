@@ -1,0 +1,239 @@
+{
+  "storyId": "07",
+  "previewUrl": "http://127.0.0.1:4173/",
+  "buildIdentifier": "bd23829fe1f1831e97d19c6f87cee4e59afb0f52",
+  "capturedAt": "2026-07-21T04:58:56.884Z",
+  "previewType": "loopback production build",
+  "externalDeployment": "not required",
+  "privacy": "repository-owned synthesized input only; compact correction operations only; no audio, filename, object URL, samples, analyzer output, generated chart, or result record",
+  "correctionAssertions": {
+    "sourceFixtureGroundTruthSeconds": [
+      1,
+      1.5,
+      2,
+      2.5
+    ],
+    "demonstratedOffsetMilliseconds": 20,
+    "demonstratedRevision": 8,
+    "invalidNoMutationStates": [
+      "offset_out_of_bounds",
+      "insufficient_taps",
+      "duplicate_beat",
+      "tempo_out_of_bounds",
+      "minimum_beats"
+    ],
+    "repeatedUndoRevisions": [
+      8,
+      7,
+      6
+    ],
+    "resetToOriginal": true,
+    "reloadWithoutAudio": true,
+    "matchingReanalysisRestore": true,
+    "differentAnalysisIsolation": true,
+    "differentAnalysisCoexistingDocuments": 2,
+    "originalRestoredAfterDifferentAnalysis": true,
+    "storageRecoveryStates": [
+      "migrated_v0",
+      "corrupt_discarded",
+      "foreign_discarded",
+      "denied_nonfatal"
+    ],
+    "editorVersion": "correction-editor-v1",
+    "difficultyNoteCountsAtRevision7": {
+      "easy": 5,
+      "medium": 9,
+      "hard": 13
+    },
+    "correctedTransport": [
+      "pause",
+      "resume",
+      "restart"
+    ],
+    "correctedGameplayCompleted": true
+  },
+  "artifacts": [
+    {
+      "file": "desktop-original-grid.png",
+      "scenario": "immutable original and matching working grid before correction",
+      "viewport": "1280x800",
+      "bytes": 632861,
+      "sha256": "9d1d0e7a4847203ba75c6fb69f600b392d1df97e7f734ce79b22365884c36f61"
+    },
+    {
+      "file": "desktop-invalid-offset.png",
+      "scenario": "out-of-bounds offset is rejected with an actionable error and revision/history remain zero",
+      "viewport": "1280x800 section",
+      "bytes": 244439,
+      "sha256": "995ae783a5d6bad8b24464a8f37b09e895dd760705f8758bb349d713e9050f02"
+    },
+    {
+      "file": "desktop-invalid-taps.png",
+      "scenario": "too-few taps are rejected without changing the working grid, charts, revision, or history",
+      "viewport": "1280x800 section",
+      "bytes": 242005,
+      "sha256": "87cd086d3254278bcd0b4dc4c4be1d5a6d097ed6197e6d810718710fcde87c8b"
+    },
+    {
+      "file": "desktop-invalid-duplicate.png",
+      "scenario": "duplicate beat is rejected while original/working facts and revision remain unchanged",
+      "viewport": "1280x800 section",
+      "bytes": 243223,
+      "sha256": "f9e47d498fad2e1b36aa16ff29eba8b201237bd66e9be3fb3f4c45a3269880cb"
+    },
+    {
+      "file": "desktop-invalid-tempo.png",
+      "scenario": "second double-tempo request is rejected at 240 BPM without adding a revision",
+      "viewport": "1280x800 section",
+      "bytes": 244245,
+      "sha256": "25956f7803e7fa2d37585c2c4a62c14fcac088ba71479a3c463dbea216114aa4"
+    },
+    {
+      "file": "desktop-offset-correction.png",
+      "scenario": "owned pulse fixture shifted 20 ms to its known beat times with saved revision",
+      "viewport": "1280x800",
+      "bytes": 235601,
+      "sha256": "20780239f57cfd6f3544db29c3d6c895c71ee97135d936f65032d58edcf56442"
+    },
+    {
+      "file": "desktop-tempo-correction.png",
+      "scenario": "half-tempo reinterpretation with original-versus-working facts and undo controls",
+      "viewport": "1280x800",
+      "bytes": 237468,
+      "sha256": "c2979ca676a12cf63bf3a6bfd52f3f3e9c520541047a82d5dde2aef6e721ee7f"
+    },
+    {
+      "file": "desktop-corrected-difficulties.png",
+      "scenario": "meter, downbeat, add/remove history and all regenerated difficulties at correction revision 7",
+      "viewport": "1280x800",
+      "bytes": 252448,
+      "sha256": "61befe6dcf2f83136dba6d290e0ba9e3b9e7e092b4dceef26abdedc401c6ef3c"
+    },
+    {
+      "file": "desktop-corrected-paused.png",
+      "scenario": "corrected Hard chart visibly paused for more than one second with Resume and stable progress",
+      "viewport": "1280x800 section",
+      "bytes": 15856,
+      "sha256": "8eb9a5d702fd2933a152884c23dd6802e70197a257d82083bb20e4760abdbc02"
+    },
+    {
+      "file": "desktop-corrected-playing.png",
+      "scenario": "corrected Hard chart running from a fresh countdown after pause, resume, and restart",
+      "viewport": "1280x800 section",
+      "bytes": 17485,
+      "sha256": "b937b9222480d35878f0aa287add7b311bba7d71c378877c020fcc39d1d64337"
+    },
+    {
+      "file": "desktop-corrected-results.png",
+      "scenario": "corrected chart completed with score, judgments, accuracy, and retry",
+      "viewport": "1280x800 section",
+      "bytes": 17161,
+      "sha256": "667ee268469d347cbbeeb04ff8e0e0542a57d9ce28bf9fc96b7e90377b4cecd5"
+    },
+    {
+      "file": "desktop-tap-grid.png",
+      "scenario": "tap tempo and phase committed as revision 8",
+      "viewport": "1280x800 section",
+      "bytes": 255960,
+      "sha256": "0160d3203f183d99f05e7723083f1ee868b87ca703e2e2828131913853c25d51"
+    },
+    {
+      "file": "desktop-undo-revision-7.png",
+      "scenario": "first Undo replays revision 7 and regenerates its prior chart identity",
+      "viewport": "1280x800 section",
+      "bytes": 252442,
+      "sha256": "1da4db590980fbc48d15bc33ae1f91fefac8affdb95ac1bfbf049a6d0f6fb8fe"
+    },
+    {
+      "file": "desktop-undo-revision-6.png",
+      "scenario": "second Undo independently replays revision 6 with its added beat and regenerated chart identity",
+      "viewport": "1280x800 section",
+      "bytes": 249475,
+      "sha256": "ba7a7368a7ddc6d8e1014f08dbce027375d054f68078c964e06507010484bac9"
+    },
+    {
+      "file": "desktop-reset.png",
+      "scenario": "reset restored the immutable original and removed correction storage",
+      "viewport": "1280x800 section",
+      "bytes": 233761,
+      "sha256": "765e798c2968e218eee82c4574d3e57dc38fcef8d905f9decfe32c3b0ecb4bf2"
+    },
+    {
+      "file": "desktop-reload-no-audio.png",
+      "scenario": "reload retains no music and asks the player to select the file again",
+      "viewport": "1280x800",
+      "bytes": 372792,
+      "sha256": "3011c0cda770edb120aa599ee416c8ac08dffecb226874c2d35a70000ebc28d3"
+    },
+    {
+      "file": "desktop-restored-correction.png",
+      "scenario": "matching private reanalysis restores only the compact correction revision",
+      "viewport": "1280x800",
+      "bytes": 631418,
+      "sha256": "c69b74d7028b16205bf1e150b521e315fd01a24cce942bc596dcc3ae40610f5c"
+    },
+    {
+      "file": "desktop-migrated-correction.png",
+      "scenario": "version-zero correction state migrates once and visibly restores the matching revision",
+      "viewport": "1280x800",
+      "bytes": 631451,
+      "sha256": "26f9ab0f41ba3a689a39d0456f0c12aa96b70cc9c9271f56e6ad5a3ab6349ca0"
+    },
+    {
+      "file": "desktop-corrupt-correction.png",
+      "scenario": "corrupt saved correction is discarded nonfatally while the original analysis remains usable",
+      "viewport": "1280x800",
+      "bytes": 632734,
+      "sha256": "2c62fbe5418ce3c6351a45189c0467dd65c9be28c0ebcc5c73ded3ac60ee52e5"
+    },
+    {
+      "file": "desktop-foreign-correction.png",
+      "scenario": "foreign-fingerprint correction is discarded and cannot alter the matching original grid",
+      "viewport": "1280x800",
+      "bytes": 632734,
+      "sha256": "2c62fbe5418ce3c6351a45189c0467dd65c9be28c0ebcc5c73ded3ac60ee52e5"
+    },
+    {
+      "file": "desktop-different-analysis.png",
+      "scenario": "visibly different owned analysis receives no correction from the prior song fingerprint",
+      "viewport": "1280x800",
+      "bytes": 546468,
+      "sha256": "aadb5fb1297d14008a37d0e9b425ddedabd87f18d3597aefc351804b4f0bfae3"
+    },
+    {
+      "file": "desktop-minimum-beats.png",
+      "scenario": "removing below two beats is rejected without adding another revision",
+      "viewport": "1280x800 section",
+      "bytes": 163239,
+      "sha256": "fc49e316598180999e21c867b43ec032b747a59e8e3bf34e8aa7d2984db194b7"
+    },
+    {
+      "file": "desktop-original-after-different.png",
+      "scenario": "returning to the original analysis restores its unchanged revision while the second fingerprint remains isolated",
+      "viewport": "1280x800",
+      "bytes": 631418,
+      "sha256": "c69b74d7028b16205bf1e150b521e315fd01a24cce942bc596dcc3ae40610f5c"
+    },
+    {
+      "file": "correction-to-play-loop.webm",
+      "scenario": "invalid no-change states, all correction families, corrected pause/resume/restart and results, repeated undo/reset, reload/restore, migration/corruption/foreign recovery, and different-analysis isolation",
+      "viewport": "1280x800",
+      "bytes": 3370969,
+      "sha256": "086141df234a83566ddcada6f0f9f2f3777030de090f0420323914995488fc66"
+    },
+    {
+      "file": "desktop-storage-denied.png",
+      "scenario": "storage denial remains nonfatal: correction revision 1 works in-tab with truthful no-reload warning",
+      "viewport": "1280x800 section",
+      "bytes": 237225,
+      "sha256": "0e5b50c05b02104043f8fc9c4c4731477e96ad0516e21e9d8ad925049cc4d552"
+    },
+    {
+      "file": "mobile-correction-workspace.png",
+      "scenario": "412-pixel correction workspace with comparison, controls, history, save state, and regenerated play action",
+      "viewport": "412x915",
+      "bytes": 1732648,
+      "sha256": "f28bf419c85c3c2af8712f8474c6b3da15cf9e7db33cc68fe26038ed9b47eac3"
+    }
+  ]
+}

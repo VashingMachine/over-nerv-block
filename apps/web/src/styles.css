@@ -59,6 +59,7 @@ main,
 .local-audio,
 .local-audio__intro,
 .local-audio__state,
+.correction-editor,
 .demo,
 .track-card,
 .track-copy,
@@ -67,6 +68,185 @@ main,
 .footer {
   min-width: 0;
   max-width: 100%;
+}
+
+.correction-editor {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  border: 1px solid rgb(245 241 233 / 14%);
+  border-radius: 1.2rem;
+  background: rgb(17 16 15 / 72%);
+}
+
+.correction-editor > h4,
+.correction-editor > p,
+.correction-history h5,
+.correction-history p {
+  margin: 0;
+}
+
+.correction-comparison {
+  display: grid;
+  margin: 0;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.correction-comparison > div {
+  min-width: 0;
+  padding: 0.8rem;
+  border: 1px solid rgb(245 241 233 / 12%);
+  border-radius: 0.8rem;
+  background: rgb(245 241 233 / 4%);
+}
+
+.correction-comparison dt {
+  color: rgb(245 241 233 / 62%);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.correction-comparison dd {
+  overflow-wrap: anywhere;
+  margin: 0.35rem 0 0;
+  font-weight: 700;
+}
+
+.correction-persistence,
+.correction-error {
+  padding: 0.8rem 1rem;
+  border-radius: 0.8rem;
+}
+
+.correction-persistence {
+  border: 1px solid rgb(107 191 143 / 35%);
+  color: #c7f0d7;
+  background: rgb(107 191 143 / 9%);
+}
+
+.correction-error {
+  border: 1px solid rgb(236 90 61 / 45%);
+  color: #ffd2c9;
+  background: rgb(236 90 61 / 12%);
+}
+
+.correction-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.correction-controls fieldset {
+  display: flex;
+  min-width: 0;
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid rgb(245 241 233 / 12%);
+  border-radius: 0.9rem;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.correction-controls legend {
+  padding: 0 0.35rem;
+  font-weight: 800;
+}
+
+.correction-controls label,
+.correction-controls p {
+  width: 100%;
+  margin: 0;
+}
+
+.correction-controls input,
+.correction-controls select {
+  max-width: 100%;
+  min-height: 2.8rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgb(245 241 233 / 22%);
+  border-radius: 0.65rem;
+  color: #f5f1e9;
+  background: #24211f;
+  font: inherit;
+}
+
+.correction-controls select {
+  flex: 1 1 14rem;
+}
+
+.correction-inline-actions {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.correction-controls button[aria-pressed="true"] {
+  border-color: #ec5a3d;
+  color: #fff;
+  background: rgb(236 90 61 / 18%);
+}
+
+.correction-timeline {
+  position: relative;
+  height: 4rem;
+  overflow: hidden;
+  border: 1px solid rgb(245 241 233 / 14%);
+  border-radius: 0.8rem;
+  background:
+    linear-gradient(90deg, rgb(245 241 233 / 5%) 1px, transparent 1px),
+    rgb(245 241 233 / 3%);
+  background-size: 10% 100%;
+}
+
+.correction-timeline::after {
+  position: absolute;
+  right: 0.6rem;
+  bottom: 0.35rem;
+  color: rgb(245 241 233 / 45%);
+  content: "working grid";
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.correction-timeline span {
+  position: absolute;
+  top: 0.85rem;
+  width: 0.22rem;
+  height: 1.55rem;
+  border-radius: 1rem;
+  transform: translateX(-50%);
+  background: #f5f1e9;
+}
+
+.correction-timeline span.is-downbeat {
+  width: 0.38rem;
+  height: 2.2rem;
+  background: #ec5a3d;
+}
+
+.correction-history {
+  display: grid;
+  padding: 1rem;
+  border: 1px solid rgb(245 241 233 / 12%);
+  border-radius: 0.9rem;
+  gap: 0.8rem;
+}
+
+.correction-history ol {
+  display: grid;
+  max-height: 12rem;
+  overflow: auto;
+  margin: 0;
+  padding-left: 1.4rem;
+  gap: 0.4rem;
 }
 
 .app-shell::before {
@@ -1279,6 +1459,14 @@ h1 {
     grid-template-columns: 1fr;
   }
 
+  .correction-comparison {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .correction-controls {
+    grid-template-columns: 1fr;
+  }
+
   .local-audio__intro h2 {
     max-width: 14ch;
   }
@@ -1340,8 +1528,19 @@ h1 {
   .beat-grid__times,
   .beat-grid__confidence dl,
   .difficulty-picker,
-  .generated-chart__facts {
+  .generated-chart__facts,
+  .correction-comparison {
     grid-template-columns: 1fr;
+  }
+
+  .correction-editor {
+    padding: 0.85rem;
+  }
+
+  .correction-controls fieldset,
+  .correction-inline-actions,
+  .correction-inline-actions .button {
+    width: 100%;
   }
 
   .difficulty-card {

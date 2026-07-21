@@ -7,6 +7,10 @@ import {
   chartGenerationContractVersion,
   chartGenerationRules,
   chartGeneratorVersion,
+  correctedRhythmAnalysisSchema,
+  correctionContractVersion,
+  correctionEditorVersion,
+  correctionStorageVersion,
   gameResultSchema,
   generatedRhythmChartSchema,
   goodWindowMilliseconds,
@@ -15,6 +19,8 @@ import {
   qualityAnalyzerVersion,
   qualityRhythmAnalysisSchema,
   rhythmChartSchema,
+  rhythmCorrectionDocumentSchema,
+  rhythmCorrectionOperationSchema,
   schemaVersion,
   songMetadataSchema,
   type QualityRhythmAnalysis,
@@ -565,5 +571,116 @@ describe("shared contracts", () => {
     const analysis = validQualityAnalysis();
     mutate(analysis);
     expect(() => qualityRhythmAnalysisSchema.parse(analysis)).toThrow();
+  });
+
+  it("accepts a compact versioned correction document", () => {
+    const document = rhythmCorrectionDocumentSchema.parse({
+      storageVersion: correctionStorageVersion,
+      kind: "rhythm_correction_document",
+      editorVersion: correctionEditorVersion,
+      correctionContractVersion,
+      sourceFingerprint: "abc123",
+      originalAnalyzerVersion: qualityAnalyzerVersion,
+      revision: 3,
+      operations: [
+        { kind: "offset", milliseconds: 50 },
+        { kind: "set_meter", meter: 4 },
+        { kind: "add_beat", timeSeconds: 6.5 },
+      ],
+    });
+
+    expect(document.operations).toHaveLength(3);
+    expect(JSON.stringify(document)).not.toContain("beats");
+    expect(JSON.stringify(document)).not.toContain("filename");
+  });
+
+  it.each([
+    { kind: "offset", milliseconds: 1001 },
+    { kind: "tempo_scale", factor: 1 },
+    { kind: "set_meter", meter: 5 },
+    { kind: "tap_grid", tapTimesSeconds: [1, 0.5, 2] },
+    { kind: "tap_grid", tapTimesSeconds: [1, 2] },
+  ])("rejects invalid correction operation $kind", (operation) => {
+    expect(() => rhythmCorrectionOperationSchema.parse(operation)).toThrow();
+  });
+
+  it("rejects a correction revision that does not match its history", () => {
+    expect(() =>
+      rhythmCorrectionDocumentSchema.parse({
+        storageVersion: correctionStorageVersion,
+        kind: "rhythm_correction_document",
+        editorVersion: correctionEditorVersion,
+        correctionContractVersion,
+        sourceFingerprint: "abc123",
+        originalAnalyzerVersion: qualityAnalyzerVersion,
+        revision: 0,
+        operations: [{ kind: "offset", milliseconds: 50 }],
+      }),
+    ).toThrow();
+  });
+
+  it("accepts a corrected projection without embedding the source analysis", () => {
+    const original = validQualityAnalysis();
+    const corrected = correctedRhythmAnalysisSchema.parse({
+      schemaVersion,
+      kind: "corrected_rhythm_analysis",
+      analyzerVersion: qualityAnalyzerVersion,
+      editorVersion: correctionEditorVersion,
+      correctionContractVersion,
+      sourceFingerprint: "abc123",
+      revision: 1,
+      durationSeconds: original.durationSeconds,
+      analysisSampleRate: original.analysisSampleRate,
+      tempoBpm: original.tempoBpm,
+      meter: original.meter,
+      confidence: original.confidence,
+      beats: original.beats,
+    });
+
+    expect(corrected.kind).toBe("corrected_rhythm_analysis");
+    expect(JSON.stringify(corrected)).not.toContain("tempoCandidates");
+    expect(JSON.stringify(corrected)).not.toContain("baselineComparison");
+  });
+
+  it("rejects corrected projections with broken timing or meter cycles", () => {
+    const original = validQualityAnalysis();
+    const base = {
+      schemaVersion,
+      kind: "corrected_rhythm_analysis" as const,
+      analyzerVersion: qualityAnalyzerVersion,
+      editorVersion: correctionEditorVersion,
+      correctionContractVersion,
+      sourceFingerprint: "abc123",
+      revision: 1,
+      durationSeconds: original.durationSeconds,
+      analysisSampleRate: original.analysisSampleRate,
+      tempoBpm: original.tempoBpm,
+      meter: original.meter,
+      confidence: original.confidence,
+      beats: original.beats,
+    };
+    expect(() =>
+      correctedRhythmAnalysisSchema.parse({
+        ...base,
+        beats: [base.beats[1], base.beats[0], ...base.beats.slice(2)],
+      }),
+    ).toThrow();
+    expect(() =>
+      correctedRhythmAnalysisSchema.parse({
+        ...base,
+        beats: base.beats.map((beat, index) =>
+          index === 2 ? { ...beat, positionInBar: 4 } : beat,
+        ),
+      }),
+    ).toThrow();
+    expect(() =>
+      correctedRhythmAnalysisSchema.parse({
+        ...base,
+        beats: base.beats.slice(1, 3).map((beat) => ({
+          ...beat,
+          isDownbeat: false,
+        })),
+      }),
+    ).toThrow();
   });
 });

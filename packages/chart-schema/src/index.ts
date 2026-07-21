@@ -8,6 +8,10 @@ export const qualityAnalyzerVersion = "quality-dsp-v1" as const;
 export const qualityAnalysisContractVersion = 1 as const;
 export const chartGeneratorVersion = "difficulty-generator-v1" as const;
 export const chartGenerationContractVersion = 1 as const;
+export const correctionEditorVersion = "correction-editor-v1" as const;
+export const correctionContractVersion = 1 as const;
+export const correctionStorageVersion = 1 as const;
+export const maximumCorrectionOperations = 256 as const;
 export const chartDifficulties = ["easy", "medium", "hard"] as const;
 export const chartGenerationRules = {
   introGuardSeconds: 0.5,
@@ -425,6 +429,189 @@ export type QualityBeatPoint = z.infer<typeof qualityBeatPointSchema>;
 export type QualityTempoCandidate = z.infer<typeof qualityTempoCandidateSchema>;
 export type QualityRhythmAnalysis = z.infer<typeof qualityRhythmAnalysisSchema>;
 
+const correctionBeatTimeSchema = z.number().nonnegative();
+
+export const rhythmCorrectionOperationSchema = z.discriminatedUnion("kind", [
+  z
+    .object({
+      kind: z.literal("offset"),
+      milliseconds: z.number().int().min(-1000).max(1000),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("tempo_scale"),
+      factor: z.union([z.literal(0.5), z.literal(2)]),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("set_meter"),
+      meter: z.union([z.literal(3), z.literal(4)]),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("first_downbeat"),
+      timeSeconds: correctionBeatTimeSchema,
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("tap_grid"),
+      tapTimesSeconds: z.array(correctionBeatTimeSchema).min(3).max(16),
+    })
+    .strict()
+    .superRefine((operation, context) => {
+      operation.tapTimesSeconds.forEach((time, index) => {
+        if (index > 0 && time <= operation.tapTimesSeconds[index - 1]!) {
+          context.addIssue({
+            code: "custom",
+            message: "Tap times must be strictly increasing",
+            path: ["tapTimesSeconds", index],
+          });
+        }
+      });
+    }),
+  z
+    .object({
+      kind: z.literal("add_beat"),
+      timeSeconds: correctionBeatTimeSchema,
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("remove_beat"),
+      timeSeconds: correctionBeatTimeSchema,
+    })
+    .strict(),
+]);
+
+export const rhythmCorrectionDocumentSchema = z
+  .strictObject({
+    storageVersion: z.literal(correctionStorageVersion),
+    kind: z.literal("rhythm_correction_document"),
+    editorVersion: z.literal(correctionEditorVersion),
+    correctionContractVersion: z.literal(correctionContractVersion),
+    sourceFingerprint: z.string().regex(/^[a-z0-9]+$/),
+    originalAnalyzerVersion: z.literal(qualityAnalyzerVersion),
+    revision: z.number().int().nonnegative(),
+    operations: z
+      .array(rhythmCorrectionOperationSchema)
+      .max(maximumCorrectionOperations),
+  })
+  .superRefine((document, context) => {
+    if (document.revision !== document.operations.length) {
+      context.addIssue({
+        code: "custom",
+        message: "Correction revision must equal the operation count",
+        path: ["revision"],
+      });
+    }
+  });
+
+export const correctedRhythmAnalysisSchema = z
+  .object({
+    schemaVersion: z.literal(schemaVersion),
+    kind: z.literal("corrected_rhythm_analysis"),
+    analyzerVersion: z.literal(qualityAnalyzerVersion),
+    editorVersion: z.literal(correctionEditorVersion),
+    correctionContractVersion: z.literal(correctionContractVersion),
+    sourceFingerprint: z.string().regex(/^[a-z0-9]+$/),
+    revision: z.number().int().nonnegative(),
+    durationSeconds: z.number().positive(),
+    analysisSampleRate: z.number().int().positive(),
+    tempoBpm: z.number().min(40).max(240),
+    meter: z.union([z.literal(3), z.literal(4)]).nullable(),
+    confidence: confidenceComponentsSchema,
+    beats: z.array(qualityBeatPointSchema).min(2),
+  })
+  .superRefine((analysis, context) => {
+    analysis.beats.forEach((beat, index) => {
+      if (beat.timeSeconds > analysis.durationSeconds) {
+        context.addIssue({
+          code: "custom",
+          message: "Corrected beat falls after the audio duration",
+          path: ["beats", index, "timeSeconds"],
+        });
+      }
+      if (
+        index > 0 &&
+        beat.timeSeconds <= analysis.beats[index - 1]!.timeSeconds
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "Corrected beats must be strictly ordered",
+          path: ["beats", index, "timeSeconds"],
+        });
+      }
+      if (analysis.meter === null) {
+        if (beat.isDownbeat || beat.positionInBar !== null) {
+          context.addIssue({
+            code: "custom",
+            message: "An uncertain corrected meter cannot assert bar positions",
+            path: ["beats", index],
+          });
+        }
+        return;
+      }
+      if (beat.positionInBar === null || beat.positionInBar > analysis.meter) {
+        context.addIssue({
+          code: "custom",
+          message: "Corrected metered beats require a valid bar position",
+          path: ["beats", index, "positionInBar"],
+        });
+        return;
+      }
+      if (beat.isDownbeat !== (beat.positionInBar === 1)) {
+        context.addIssue({
+          code: "custom",
+          message: "Corrected downbeats must be position one",
+          path: ["beats", index, "isDownbeat"],
+        });
+      }
+      if (index > 0) {
+        const previous = analysis.beats[index - 1]!.positionInBar!;
+        const expected = previous === analysis.meter ? 1 : previous + 1;
+        if (beat.positionInBar !== expected) {
+          context.addIssue({
+            code: "custom",
+            message: "Corrected bar positions must advance cyclically",
+            path: ["beats", index, "positionInBar"],
+          });
+        }
+      }
+    });
+    if (
+      analysis.meter !== null &&
+      !analysis.beats.some((beat) => beat.isDownbeat)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "A corrected metered analysis requires a downbeat",
+        path: ["beats"],
+      });
+    }
+  });
+
+export const generationRhythmAnalysisSchema = z.union([
+  qualityRhythmAnalysisSchema,
+  correctedRhythmAnalysisSchema,
+]);
+
+export type RhythmCorrectionOperation = z.infer<
+  typeof rhythmCorrectionOperationSchema
+>;
+export type RhythmCorrectionDocument = z.infer<
+  typeof rhythmCorrectionDocumentSchema
+>;
+export type CorrectedRhythmAnalysis = z.infer<
+  typeof correctedRhythmAnalysisSchema
+>;
+export type GenerationRhythmAnalysis = z.infer<
+  typeof generationRhythmAnalysisSchema
+>;
+
 export const chartDifficultySchema = z.enum(chartDifficulties);
 
 const generatedChartIdentitySchema = z.object({
@@ -434,6 +621,14 @@ const generatedChartIdentitySchema = z.object({
   generatorContractVersion: z.literal(chartGenerationContractVersion),
   difficulty: chartDifficultySchema,
   seed: z.number().int().nonnegative(),
+  correction: z
+    .object({
+      editorVersion: z.literal(correctionEditorVersion),
+      correctionContractVersion: z.literal(correctionContractVersion),
+      sourceFingerprint: z.string().regex(/^[a-z0-9]+$/),
+      revision: z.number().int().positive(),
+    })
+    .optional(),
   generation: z.object({
     inputBeatCount: z.number().int().min(2),
     eligibleBeatCount: z.number().int().nonnegative(),

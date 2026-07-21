@@ -19,7 +19,8 @@ import {
   analyzeDecodedAudioInWorker,
   BeatAnalysisBoundaryError,
 } from "../analysis/workerBeatAnalyzer";
-import { GeneratedDifficultyPicker } from "../chartGeneration/GeneratedDifficultyPicker";
+import { RhythmCorrectionEditor } from "../correction/RhythmCorrectionEditor";
+import { correctionSourceFingerprint } from "../correction/rhythmCorrection";
 import { playbackCoordinator } from "../demo/playbackCoordinator";
 
 import {
@@ -911,9 +912,11 @@ export function LocalAudioPicker({
               ) : null}
             </div>
             {analysisState.kind === "complete" ? (
-              <GeneratedDifficultyPicker
+              <RhythmCorrectionEditor
+                key={correctionSourceFingerprint(analysisState.grid)}
                 analysis={analysisState.grid}
                 audioUrl={state.previewUrl}
+                getPreviewTime={() => previewRef.current?.currentTime ?? 0}
               />
             ) : null}
             <div className="local-audio__actions">

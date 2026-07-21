@@ -22,15 +22,15 @@ export function App() {
       <main>
         <section className="hero">
           <div className="eyebrow">
-            <span>06</span>
-            <span>Automatic playable difficulties</span>
+            <span>07</span>
+            <span>Correct an imperfect chart</span>
           </div>
           <div className="hero-copy">
             <p className="kicker">Your music. Your timing.</p>
             <h1>Make every beat playable.</h1>
             <p className="lede">
-              Prepare music privately, detect beats and bar starts, then choose
-              an automatically generated Easy, Medium, or Hard chart. Nothing is
+              Prepare music privately, correct common beat, tempo, and bar
+              mistakes, then regenerate Easy, Medium, or Hard. Nothing is
               uploaded.
             </p>
           </div>
@@ -41,7 +41,7 @@ export function App() {
       </main>
 
       <footer className="footer">
-        <p>Stage 06 / Automatic playable difficulties</p>
+        <p>Stage 07 / Correct an imperfect chart</p>
         <p>Runs locally in your browser.</p>
       </footer>
     </div>

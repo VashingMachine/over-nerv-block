@@ -3,14 +3,14 @@ import {
   chartGenerationContractVersion,
   chartGenerationRules,
   chartGeneratorVersion,
+  generationRhythmAnalysisSchema,
   generatedRhythmChartSchema,
   qualityAnalyzerVersion,
-  qualityRhythmAnalysisSchema,
   schemaVersion,
   type ChartDifficulty,
+  type GenerationRhythmAnalysis,
   type GeneratedRhythmChart,
   type QualityBeatPoint,
-  type QualityRhythmAnalysis,
 } from "@rhythm-game/chart-schema";
 
 export type ChartGenerationErrorCode = "insufficient_safe_beats";
@@ -37,7 +37,7 @@ interface IndexedBeat {
 function isPatternCandidate(
   candidate: IndexedBeat,
   difficulty: ChartDifficulty,
-  meter: QualityRhythmAnalysis["meter"],
+  meter: GenerationRhythmAnalysis["meter"],
 ): boolean {
   if (difficulty === "hard") {
     return true;
@@ -115,7 +115,7 @@ function thinAcrossTimeline(
 }
 
 function selectDifficulty(
-  analysis: QualityRhythmAnalysis,
+  analysis: GenerationRhythmAnalysis,
   difficulty: ChartDifficulty,
   required: readonly IndexedBeat[],
 ): { selected: IndexedBeat[]; eligibleCount: number } {
@@ -182,7 +182,7 @@ function selectDifficulty(
 }
 
 function generatedChartFingerprint(
-  analysis: QualityRhythmAnalysis,
+  analysis: GenerationRhythmAnalysis,
   difficulty: ChartDifficulty,
   selected: readonly IndexedBeat[],
   seed: number,
@@ -215,10 +215,10 @@ function noteSource(beat: QualityBeatPoint): "beat" | "downbeat" | "onset" {
 }
 
 export function generateDifficultyCharts(
-  input: QualityRhythmAnalysis,
+  input: GenerationRhythmAnalysis,
   seed = 0,
 ): DifficultyCharts {
-  const analysis = qualityRhythmAnalysisSchema.parse(input);
+  const analysis = generationRhythmAnalysisSchema.parse(input);
   if (!Number.isSafeInteger(seed) || seed < 0) {
     throw new RangeError(
       "Chart generation seed must be a non-negative integer",
@@ -258,6 +258,15 @@ export function generateDifficultyCharts(
       generatorContractVersion: chartGenerationContractVersion,
       difficulty,
       seed,
+      correction:
+        analysis.kind === "corrected_rhythm_analysis" && analysis.revision > 0
+          ? {
+              editorVersion: analysis.editorVersion,
+              correctionContractVersion: analysis.correctionContractVersion,
+              sourceFingerprint: analysis.sourceFingerprint,
+              revision: analysis.revision,
+            }
+          : undefined,
       generation: {
         inputBeatCount: analysis.beats.length,
         eligibleBeatCount: eligibleCount,
