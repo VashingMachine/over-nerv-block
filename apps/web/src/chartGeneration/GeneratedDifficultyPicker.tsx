@@ -7,6 +7,10 @@ import {
 } from "@rhythm-game/chart-schema";
 
 import { RhythmGame, type RhythmGameExperience } from "../demo/DemoGame";
+import {
+  createChartHistoryEntry,
+  type ChartHistoryStore,
+} from "../history/chartHistoryStore";
 
 import {
   ChartGenerationError,
@@ -16,6 +20,8 @@ import {
 interface GeneratedDifficultyPickerProps {
   readonly analysis: GenerationRhythmAnalysis;
   readonly audioUrl?: string;
+  readonly historyStore?: ChartHistoryStore;
+  readonly onHistoryChanged?: () => void;
 }
 
 const difficultyCopy: Record<
@@ -49,8 +55,13 @@ function readableGenerationError(error: unknown): string {
 export function GeneratedDifficultyPicker({
   analysis,
   audioUrl,
+  historyStore,
+  onHistoryChanged,
 }: GeneratedDifficultyPickerProps) {
   const [difficulty, setDifficulty] = useState<ChartDifficulty>("easy");
+  const [historyStatus, setHistoryStatus] = useState<
+    "idle" | "saving" | "saved" | "unavailable"
+  >("idle");
   const generation = useMemo(() => {
     try {
       return {
@@ -92,6 +103,26 @@ export function GeneratedDifficultyPicker({
         chart: selectedChart,
         sectionLabel: `${difficultyCopy[difficulty].name} generated chart · one lane`,
         startLabel: `Start ${difficultyCopy[difficulty].name} chart`,
+        onResult: historyStore
+          ? (result) => {
+              setHistoryStatus("saving");
+              void historyStore
+                .saveEntry(
+                  createChartHistoryEntry({
+                    chart: selectedChart,
+                    result,
+                    tempoBpm: analysis.tempoBpm,
+                    meter: analysis.meter,
+                  }),
+                )
+                .then((status) => {
+                  setHistoryStatus(status);
+                  if (status === "saved") {
+                    onHistoryChanged?.();
+                  }
+                });
+            }
+          : undefined,
       }
     : null;
 
@@ -118,7 +149,10 @@ export function GeneratedDifficultyPicker({
               type="button"
               key={candidate}
               aria-pressed={difficulty === candidate}
-              onClick={() => setDifficulty(candidate)}
+              onClick={() => {
+                setDifficulty(candidate);
+                setHistoryStatus("idle");
+              }}
             >
               <strong>{copy.name}</strong>
               <span>{copy.description}</span>
@@ -188,7 +222,18 @@ export function GeneratedDifficultyPicker({
       </div>
 
       {experience ? (
-        <RhythmGame key={selectedChart.id} experience={experience} />
+        <>
+          <RhythmGame key={selectedChart.id} experience={experience} />
+          {historyStatus !== "idle" ? (
+            <p className="recovery-status" role="status">
+              {historyStatus === "saving"
+                ? "Saving this audio-free chart/result to recent history…"
+                : historyStatus === "saved"
+                  ? "Chart and result saved to recent history. Audio and filename were not saved."
+                  : "Results are visible, but chart history storage is unavailable."}
+            </p>
+          ) : null}
+        </>
       ) : (
         <div className="generated-chart__audio-needed" role="status">
           <h5>Audio needed to play</h5>

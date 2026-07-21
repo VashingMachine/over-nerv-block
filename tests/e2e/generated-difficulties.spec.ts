@@ -208,12 +208,12 @@ test("player completes and tears down a generated local chart", async ({
   const localState = await page.evaluate(async () => ({
     databaseNames:
       typeof indexedDB.databases === "function"
-        ? (await indexedDB.databases()).map((database) => database.name)
+        ? (await indexedDB.databases()).map((database) => database.name).sort()
         : [],
     localStorageKeys: Object.keys(localStorage),
   }));
   expect(localState).toEqual({
-    databaseNames: ["rhythm-game-recovery"],
+    databaseNames: ["rhythm-game-history", "rhythm-game-recovery"],
     localStorageKeys: [],
   });
 

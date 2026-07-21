@@ -245,7 +245,9 @@ test("player privately prepares and clears a valid local song", async ({
       checkpoint,
       databaseNames:
         typeof indexedDB.databases === "function"
-          ? (await indexedDB.databases()).map((database) => database.name)
+          ? (await indexedDB.databases())
+              .map((database) => database.name)
+              .sort()
           : [],
       localStorageKeys: Object.keys(localStorage),
       registrations:
@@ -261,7 +263,7 @@ test("player privately prepares and clears a valid local song", async ({
       kind: "completed_beat_grid_checkpoint",
       grid: expect.objectContaining({ kind: "quality_rhythm_analysis" }),
     }),
-    databaseNames: ["rhythm-game-recovery"],
+    databaseNames: ["rhythm-game-history", "rhythm-game-recovery"],
     localStorageKeys: [],
     registrations: 0,
   });

@@ -1,12 +1,10 @@
-import type {
-  NoteJudgment,
-  ResultSummary,
-  RhythmChart,
-} from "@rhythm-game/chart-schema";
+import type { NoteJudgment, RhythmChart } from "@rhythm-game/chart-schema";
 import {
   goodWindowMilliseconds,
   perfectWindowMilliseconds,
 } from "@rhythm-game/chart-schema";
+
+export { deriveResultSummary } from "@rhythm-game/chart-schema";
 
 export const PERFECT_WINDOW_MILLISECONDS = perfectWindowMilliseconds;
 export const GOOD_WINDOW_MILLISECONDS = goodWindowMilliseconds;
@@ -153,45 +151,6 @@ export function completeJudgments(
           ],
     ),
   ].sort((left, right) => left.noteIndex - right.noteIndex);
-}
-
-export function deriveResultSummary(
-  judgments: readonly NoteJudgment[],
-): ResultSummary {
-  let combo = 0;
-  let maxCombo = 0;
-  let score = 0;
-  let perfect = 0;
-  let good = 0;
-  let miss = 0;
-
-  for (const record of [...judgments].sort(
-    (left, right) => left.noteIndex - right.noteIndex,
-  )) {
-    if (record.judgment === "perfect") {
-      perfect += 1;
-      combo += 1;
-      score += 1_000;
-    } else if (record.judgment === "good") {
-      good += 1;
-      combo += 1;
-      score += 500;
-    } else {
-      miss += 1;
-      combo = 0;
-    }
-    maxCombo = Math.max(maxCombo, combo);
-  }
-
-  const total = perfect + good + miss;
-  return {
-    perfect,
-    good,
-    miss,
-    score,
-    maxCombo,
-    accuracyPercent: total === 0 ? 0 : ((perfect + good * 0.5) / total) * 100,
-  };
 }
 
 export function currentCombo(judgments: readonly NoteJudgment[]): number {

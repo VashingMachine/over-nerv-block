@@ -53,6 +53,7 @@ describe("generated rhythm-game experience", () => {
   beforeEach(() => localStorage.clear());
 
   it("plays the supplied local URL and chart without persisting the result", async () => {
+    const onResult = vi.fn();
     let endTrack: () => void = () => undefined;
     const start = vi.fn(
       async ({ onEnded }: Parameters<AudioEngine["start"]>[0]) => {
@@ -71,7 +72,7 @@ describe("generated rhythm-game experience", () => {
 
     render(
       <RhythmGame
-        experience={experience()}
+        experience={experience({ onResult })}
         createAudioEngine={() => engine}
         now={() => "2026-07-21T02:00:00.000Z"}
       />,
@@ -92,6 +93,11 @@ describe("generated rhythm-game experience", () => {
     expect(await screen.findByLabelText("Track results")).toHaveTextContent(
       "Miss1",
     );
+    expect(onResult).toHaveBeenCalledOnce();
+    expect(onResult.mock.calls[0]![0]).toMatchObject({
+      chartId: "generated-owned-easy",
+      summary: { perfect: 1, miss: 1 },
+    });
     expect(localStorage.getItem(resultStorageKeys.latestResult)).toBeNull();
   });
 

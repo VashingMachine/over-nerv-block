@@ -9,6 +9,7 @@ import {
 } from "@rhythm-game/chart-schema";
 
 import { GeneratedDifficultyPicker } from "../chartGeneration/GeneratedDifficultyPicker";
+import type { ChartHistoryStore } from "../history/chartHistoryStore";
 
 import {
   readCorrectionDocument,
@@ -28,6 +29,8 @@ interface RhythmCorrectionEditorProps {
   readonly audioUrl?: string;
   readonly getPreviewTime?: () => number;
   readonly storage?: Storage | null;
+  readonly historyStore?: ChartHistoryStore;
+  readonly onHistoryChanged?: () => void;
 }
 
 type PersistenceState =
@@ -93,6 +96,8 @@ export function RhythmCorrectionEditor({
   audioUrl,
   getPreviewTime,
   storage = browserStorage(),
+  historyStore,
+  onHistoryChanged,
 }: RhythmCorrectionEditorProps) {
   const sourceFingerprint = useMemo(
     () => correctionSourceFingerprint(analysis),
@@ -481,6 +486,8 @@ export function RhythmCorrectionEditor({
       <GeneratedDifficultyPicker
         analysis={generationAnalysis}
         audioUrl={audioUrl}
+        historyStore={historyStore}
+        onHistoryChanged={onHistoryChanged}
       />
     </section>
   );

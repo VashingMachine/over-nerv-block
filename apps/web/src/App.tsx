@@ -22,16 +22,16 @@ export function App() {
       <main>
         <section className="hero">
           <div className="eyebrow">
-            <span>07</span>
-            <span>Correct an imperfect chart</span>
+            <span>09</span>
+            <span>Results and chart-only history</span>
           </div>
           <div className="hero-copy">
             <p className="kicker">Your music. Your timing.</p>
             <h1>Make every beat playable.</h1>
             <p className="lede">
-              Prepare music privately, correct common beat, tempo, and bar
-              mistakes, then regenerate Easy, Medium, or Hard. Nothing is
-              uploaded.
+              Prepare music privately, correct its rhythm, play a generated
+              chart, and keep recent chart/results without saving audio. Nothing
+              is uploaded.
             </p>
           </div>
           <SystemStatus state={systemState} onRetry={retry} />
@@ -41,7 +41,7 @@ export function App() {
       </main>
 
       <footer className="footer">
-        <p>Stage 07 / Correct an imperfect chart</p>
+        <p>Stage 09 / Results and chart-only history</p>
         <p>Runs locally in your browser.</p>
       </footer>
     </div>

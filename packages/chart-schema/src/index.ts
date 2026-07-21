@@ -12,6 +12,9 @@ export const correctionEditorVersion = "correction-editor-v1" as const;
 export const correctionContractVersion = 1 as const;
 export const correctionStorageVersion = 1 as const;
 export const beatGridCheckpointVersion = 1 as const;
+export const chartHistoryStorageVersion = 1 as const;
+export const chartHistoryEntryVersion = 1 as const;
+export const maximumChartHistoryEntries = 20 as const;
 export const maximumCorrectionOperations = 256 as const;
 export const chartDifficulties = ["easy", "medium", "hard"] as const;
 export const chartGenerationRules = {
@@ -109,20 +112,22 @@ export const songMetadataSchema = z.object({
 
 export type SongMetadata = z.infer<typeof songMetadataSchema>;
 
-export const chartNoteSchema = z.object({
+export const chartNoteSchema = z.strictObject({
   timeSeconds: z.number().nonnegative(),
   lane: z.literal(0),
   source: z.enum(["manual", "beat", "downbeat", "onset"]),
 });
 
+const rhythmChartShape = {
+  schemaVersion: z.literal(schemaVersion),
+  id: z.string().min(1),
+  title: z.string().min(1),
+  durationSeconds: z.number().positive(),
+  notes: z.array(chartNoteSchema),
+};
+
 export const rhythmChartSchema = z
-  .object({
-    schemaVersion: z.literal(schemaVersion),
-    id: z.string().min(1),
-    title: z.string().min(1),
-    durationSeconds: z.number().positive(),
-    notes: z.array(chartNoteSchema),
-  })
+  .strictObject(rhythmChartShape)
   .superRefine((chart, context) => {
     chart.notes.forEach((note, index) => {
       if (note.timeSeconds > chart.durationSeconds) {
@@ -636,7 +641,7 @@ export type GenerationRhythmAnalysis = z.infer<
 
 export const chartDifficultySchema = z.enum(chartDifficulties);
 
-const generatedChartIdentitySchema = z.object({
+const generatedChartIdentityShape = {
   kind: z.literal("generated_rhythm_chart"),
   analyzerVersion: z.literal(qualityAnalyzerVersion),
   generatorVersion: z.literal(chartGeneratorVersion),
@@ -644,14 +649,14 @@ const generatedChartIdentitySchema = z.object({
   difficulty: chartDifficultySchema,
   seed: z.number().int().nonnegative(),
   correction: z
-    .object({
+    .strictObject({
       editorVersion: z.literal(correctionEditorVersion),
       correctionContractVersion: z.literal(correctionContractVersion),
       sourceFingerprint: z.string().regex(/^[a-z0-9]+$/),
       revision: z.number().int().positive(),
     })
     .optional(),
-  generation: z.object({
+  generation: z.strictObject({
     inputBeatCount: z.number().int().min(2),
     eligibleBeatCount: z.number().int().nonnegative(),
     selectedNoteCount: z.number().int().min(chartGenerationRules.minimumNotes),
@@ -659,11 +664,28 @@ const generatedChartIdentitySchema = z.object({
     maximumNotesPerMinute: z.number().positive(),
     lowConfidenceGuardApplied: z.boolean(),
   }),
-});
+};
 
-export const generatedRhythmChartSchema = rhythmChartSchema
-  .and(generatedChartIdentitySchema)
+export const generatedRhythmChartSchema = z
+  .strictObject({ ...rhythmChartShape, ...generatedChartIdentityShape })
   .superRefine((chart, context) => {
+    chart.notes.forEach((note, index) => {
+      if (note.timeSeconds > chart.durationSeconds) {
+        context.addIssue({
+          code: "custom",
+          message: "Chart note falls after the song duration",
+          path: ["notes", index, "timeSeconds"],
+        });
+      }
+      if (index > 0 && note.timeSeconds < chart.notes[index - 1]!.timeSeconds) {
+        context.addIssue({
+          code: "custom",
+          message: "Chart notes must be ordered by time",
+          path: ["notes", index, "timeSeconds"],
+        });
+      }
+    });
+
     const rules = chartGenerationRules.difficulties[chart.difficulty];
     if (chart.generation.selectedNoteCount !== chart.notes.length) {
       context.addIssue({
@@ -745,7 +767,7 @@ export type GeneratedRhythmChart = z.infer<typeof generatedRhythmChartSchema>;
 export const judgmentSchema = z.enum(["perfect", "good", "miss"]);
 
 export const noteJudgmentSchema = z
-  .object({
+  .strictObject({
     noteIndex: z.number().int().nonnegative(),
     noteTimeSeconds: z.number().nonnegative(),
     inputTimeSeconds: z.number().nonnegative().nullable(),
@@ -807,7 +829,7 @@ export const noteJudgmentSchema = z
     }
   });
 
-export const resultSummarySchema = z.object({
+export const resultSummarySchema = z.strictObject({
   perfect: z.number().int().nonnegative(),
   good: z.number().int().nonnegative(),
   miss: z.number().int().nonnegative(),
@@ -816,8 +838,50 @@ export const resultSummarySchema = z.object({
   accuracyPercent: z.number().min(0).max(100),
 });
 
+export type NoteJudgment = z.infer<typeof noteJudgmentSchema>;
+export type ResultSummary = z.infer<typeof resultSummarySchema>;
+
+export function deriveResultSummary(
+  judgments: readonly NoteJudgment[],
+): ResultSummary {
+  let combo = 0;
+  let maxCombo = 0;
+  let score = 0;
+  let perfect = 0;
+  let good = 0;
+  let miss = 0;
+
+  for (const record of [...judgments].sort(
+    (left, right) => left.noteIndex - right.noteIndex,
+  )) {
+    if (record.judgment === "perfect") {
+      perfect += 1;
+      combo += 1;
+      score += 1_000;
+    } else if (record.judgment === "good") {
+      good += 1;
+      combo += 1;
+      score += 500;
+    } else {
+      miss += 1;
+      combo = 0;
+    }
+    maxCombo = Math.max(maxCombo, combo);
+  }
+
+  const total = perfect + good + miss;
+  return {
+    perfect,
+    good,
+    miss,
+    score,
+    maxCombo,
+    accuracyPercent: total === 0 ? 0 : ((perfect + good * 0.5) / total) * 100,
+  };
+}
+
 export const gameResultSchema = z
-  .object({
+  .strictObject({
     schemaVersion: z.literal(schemaVersion),
     songId: z.string().min(1),
     chartId: z.string().min(1),
@@ -838,8 +902,128 @@ export const gameResultSchema = z
       }
       noteIndexes.add(record.noteIndex);
     });
+    const expected = deriveResultSummary(result.judgments);
+    if (
+      result.summary.perfect !== expected.perfect ||
+      result.summary.good !== expected.good ||
+      result.summary.miss !== expected.miss ||
+      result.summary.score !== expected.score ||
+      result.summary.maxCombo !== expected.maxCombo ||
+      result.summary.accuracyPercent !== expected.accuracyPercent
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Result summary must be derived from its judgments",
+        path: ["summary"],
+      });
+    }
   });
 
-export type NoteJudgment = z.infer<typeof noteJudgmentSchema>;
-export type ResultSummary = z.infer<typeof resultSummarySchema>;
 export type GameResult = z.infer<typeof gameResultSchema>;
+
+export function chartHistoryEntryId(chartId: string, playedAt: string): string {
+  return `${chartId}:${playedAt}`;
+}
+
+function compareHistoryIdentity(
+  left: { readonly savedAtEpochMs: number; readonly id: string },
+  right: { readonly savedAtEpochMs: number; readonly id: string },
+): number {
+  const timestampOrder = right.savedAtEpochMs - left.savedAtEpochMs;
+  if (timestampOrder !== 0) {
+    return timestampOrder;
+  }
+  return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
+}
+
+export const chartHistoryEntrySchema = z
+  .strictObject({
+    entryVersion: z.literal(chartHistoryEntryVersion),
+    kind: z.literal("chart_result_history_entry"),
+    id: z.string().min(1),
+    savedAtEpochMs: z.number().int().nonnegative(),
+    tempoBpm: z.number().min(40).max(240),
+    meter: z.union([z.literal(3), z.literal(4)]).nullable(),
+    chart: generatedRhythmChartSchema,
+    result: gameResultSchema,
+  })
+  .superRefine((entry, context) => {
+    if (
+      entry.result.songId !== entry.chart.id ||
+      entry.result.chartId !== entry.chart.id
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "History result must belong to its generated chart",
+        path: ["result", "chartId"],
+      });
+    }
+    if (entry.savedAtEpochMs !== Date.parse(entry.result.playedAt)) {
+      context.addIssue({
+        code: "custom",
+        message: "History save time must match result play time",
+        path: ["savedAtEpochMs"],
+      });
+    }
+    if (
+      entry.id !== chartHistoryEntryId(entry.chart.id, entry.result.playedAt)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "History entry ID must be derived from chart and play time",
+        path: ["id"],
+      });
+    }
+    if (entry.result.judgments.length !== entry.chart.notes.length) {
+      context.addIssue({
+        code: "custom",
+        message: "History result must cover every chart note",
+        path: ["result", "judgments"],
+      });
+    }
+    entry.result.judgments.forEach((judgment, index) => {
+      if (
+        judgment.noteIndex !== index ||
+        judgment.noteTimeSeconds !== entry.chart.notes[index]?.timeSeconds
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "History judgments must match chart notes in exact order",
+          path: ["result", "judgments", index],
+        });
+      }
+    });
+  });
+
+export const chartHistoryDocumentSchema = z
+  .strictObject({
+    historyVersion: z.literal(chartHistoryStorageVersion),
+    kind: z.literal("chart_result_history"),
+    entries: z.array(chartHistoryEntrySchema).max(maximumChartHistoryEntries),
+  })
+  .superRefine((document, context) => {
+    const ids = new Set<string>();
+    document.entries.forEach((entry, index) => {
+      if (ids.has(entry.id)) {
+        context.addIssue({
+          code: "custom",
+          message: "History entry IDs must be unique",
+          path: ["entries", index, "id"],
+        });
+      }
+      ids.add(entry.id);
+      if (
+        index > 0 &&
+        compareHistoryIdentity(document.entries[index - 1]!, entry) > 0
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "History entries must use canonical newest-first ordering",
+          path: ["entries", index],
+        });
+      }
+    });
+  });
+
+export type ChartHistoryEntry = z.infer<typeof chartHistoryEntrySchema>;
+export type ChartHistoryDocument = z.infer<typeof chartHistoryDocumentSchema>;

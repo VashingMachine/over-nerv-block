@@ -6,6 +6,9 @@ import {
   beatGridCheckpointVersion,
   beatGridSchema,
   buildManifestSchema,
+  chartHistoryDocumentSchema,
+  chartHistoryEntryVersion,
+  chartHistoryStorageVersion,
   chartGenerationContractVersion,
   chartGenerationRules,
   chartGeneratorVersion,
@@ -295,6 +298,213 @@ describe("shared contracts", () => {
         },
       }).judgments,
     ).toHaveLength(3);
+  });
+
+  it("accepts one versioned audio-free chart/result history document", () => {
+    const chart = generatedRhythmChartSchema.parse({
+      schemaVersion,
+      kind: "generated_rhythm_chart",
+      id: "generated-owned-easy",
+      title: "Generated Easy chart",
+      durationSeconds: 8,
+      analyzerVersion: qualityAnalyzerVersion,
+      generatorVersion: chartGeneratorVersion,
+      generatorContractVersion: chartGenerationContractVersion,
+      difficulty: "easy",
+      seed: 0,
+      generation: {
+        inputBeatCount: 13,
+        eligibleBeatCount: 4,
+        selectedNoteCount: 4,
+        minimumSpacingSeconds:
+          chartGenerationRules.difficulties.easy.minimumSpacingSeconds,
+        maximumNotesPerMinute:
+          chartGenerationRules.difficulties.easy.maximumNotesPerMinute,
+        lowConfidenceGuardApplied: false,
+      },
+      notes: [1, 3, 5, 7].map((timeSeconds) => ({
+        timeSeconds,
+        lane: 0,
+        source: "downbeat",
+      })),
+    });
+    const playedAt = "2026-07-21T06:00:00.000Z";
+    const history = chartHistoryDocumentSchema.parse({
+      historyVersion: chartHistoryStorageVersion,
+      kind: "chart_result_history",
+      entries: [
+        {
+          entryVersion: chartHistoryEntryVersion,
+          kind: "chart_result_history_entry",
+          id: `${chart.id}:${playedAt}`,
+          savedAtEpochMs: Date.parse(playedAt),
+          tempoBpm: 120,
+          meter: 4,
+          chart,
+          result: {
+            schemaVersion,
+            songId: chart.id,
+            chartId: chart.id,
+            playedAt,
+            calibrationOffsetMilliseconds: 0,
+            judgments: chart.notes.map((note, noteIndex) => ({
+              noteIndex,
+              noteTimeSeconds: note.timeSeconds,
+              inputTimeSeconds: null,
+              offsetMilliseconds: null,
+              judgment: "miss",
+            })),
+            summary: {
+              perfect: 0,
+              good: 0,
+              miss: chart.notes.length,
+              score: 0,
+              maxCombo: 0,
+              accuracyPercent: 0,
+            },
+          },
+        },
+      ],
+    });
+
+    expect(history.entries[0]!.chart.notes).toHaveLength(4);
+    expect(JSON.stringify(history)).not.toMatch(
+      /filename|mime|objecturl|blob:|audio bytes/i,
+    );
+    expect(() =>
+      chartHistoryDocumentSchema.parse({ ...history, filename: "private.wav" }),
+    ).toThrow();
+
+    const stored = history.entries[0]!;
+    const nestedUnknownFields = [
+      { ...stored, filename: "private.wav" },
+      { ...stored, chart: { ...stored.chart, filename: "private.wav" } },
+      {
+        ...stored,
+        chart: {
+          ...stored.chart,
+          notes: stored.chart.notes.map((note, index) =>
+            index === 0 ? { ...note, filename: "private.wav" } : note,
+          ),
+        },
+      },
+      {
+        ...stored,
+        chart: {
+          ...stored.chart,
+          generation: {
+            ...stored.chart.generation,
+            filename: "private.wav",
+          },
+        },
+      },
+      {
+        ...stored,
+        chart: {
+          ...stored.chart,
+          correction: {
+            editorVersion: correctionEditorVersion,
+            correctionContractVersion,
+            sourceFingerprint: "abc123",
+            revision: 1,
+            filename: "private.wav",
+          },
+        },
+      },
+      { ...stored, result: { ...stored.result, filename: "private.wav" } },
+      {
+        ...stored,
+        result: {
+          ...stored.result,
+          judgments: stored.result.judgments.map((judgment, index) =>
+            index === 0 ? { ...judgment, filename: "private.wav" } : judgment,
+          ),
+        },
+      },
+      {
+        ...stored,
+        result: {
+          ...stored.result,
+          summary: { ...stored.result.summary, filename: "private.wav" },
+        },
+      },
+    ];
+    for (const invalidEntry of nestedUnknownFields) {
+      expect(() =>
+        chartHistoryDocumentSchema.parse({
+          ...history,
+          entries: [invalidEntry],
+        }),
+      ).toThrow();
+    }
+
+    const semanticMismatches = [
+      { ...stored, id: "foreign" },
+      {
+        ...stored,
+        result: {
+          ...stored.result,
+          judgments: stored.result.judgments.slice(1),
+        },
+      },
+      {
+        ...stored,
+        result: {
+          ...stored.result,
+          judgments: [
+            stored.result.judgments[1]!,
+            stored.result.judgments[0]!,
+            ...stored.result.judgments.slice(2),
+          ],
+        },
+      },
+      {
+        ...stored,
+        result: {
+          ...stored.result,
+          judgments: stored.result.judgments.map((judgment, index) =>
+            index === 0
+              ? { ...judgment, noteTimeSeconds: judgment.noteTimeSeconds + 0.1 }
+              : judgment,
+          ),
+        },
+      },
+      {
+        ...stored,
+        result: {
+          ...stored.result,
+          summary: { ...stored.result.summary, score: 99_999 },
+        },
+      },
+    ];
+    for (const invalidEntry of semanticMismatches) {
+      expect(() =>
+        chartHistoryDocumentSchema.parse({
+          ...history,
+          entries: [invalidEntry],
+        }),
+      ).toThrow();
+    }
+
+    expect(() =>
+      chartHistoryDocumentSchema.parse({
+        ...history,
+        entries: [stored, stored],
+      }),
+    ).toThrow();
+    const laterPlayedAt = "2026-07-21T06:01:00.000Z";
+    const later = {
+      ...stored,
+      id: `${stored.chart.id}:${laterPlayedAt}`,
+      savedAtEpochMs: Date.parse(laterPlayedAt),
+      result: { ...stored.result, playedAt: laterPlayedAt },
+    };
+    expect(() =>
+      chartHistoryDocumentSchema.parse({
+        ...history,
+        entries: [stored, later],
+      }),
+    ).toThrow();
   });
 
   it.each([

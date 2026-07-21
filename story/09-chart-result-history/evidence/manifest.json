@@ -1,0 +1,104 @@
+{
+  "storyId": "09",
+  "previewUrl": "http://127.0.0.1:4173/",
+  "buildIdentifier": "bf7151ea94c9f2ef3decc6638382256e45c57b30",
+  "capturedAt": "2026-07-21T07:54:53.458Z",
+  "previewType": "loopback production build",
+  "externalDeployment": "not required",
+  "privacy": "repository-owned synthesized input only; strict bounded chart/result metadata only; no audio, filename, File, path, MIME metadata, file size, object URL, decoded samples, or worker buffers",
+  "historyAssertions": {
+    "storageVersion": 1,
+    "maximumEntries": 20,
+    "completionSaved": true,
+    "reloadRestoresChartAndResult": true,
+    "reloadRestoresAudio": false,
+    "historicalPlayAction": false,
+    "reselectRequiresAnalysis": true,
+    "successfulAnalysisRestoresPlay": true,
+    "versionZeroMigration": true,
+    "targetedDelete": true,
+    "clearAll": true,
+    "unknownNestedFieldDiscarded": true,
+    "storageDeniedNonfatal": true,
+    "desktopAndMobileContained": true
+  },
+  "artifacts": [
+    {
+      "file": "desktop-result-saved.png",
+      "scenario": "a completed generated chart remains visible while its audio-free chart/result history save is confirmed",
+      "viewport": "1280x800 generated chart",
+      "bytes": 123856,
+      "sha256": "5aa2aeb68064ac7a98a3dd7adfc050291b4d7e6651adbd955d4e435a33de7a3d"
+    },
+    {
+      "file": "desktop-history-no-audio.png",
+      "scenario": "reload restores chart/result facts and retention/privacy guidance without audio or a historical play action",
+      "viewport": "1280x800 history",
+      "bytes": 86842,
+      "sha256": "29720f1abaaca3eb26296c479f25f43bf98e77a238965b564c3b988a2ccb98d8"
+    },
+    {
+      "file": "desktop-history-reselect-ready.png",
+      "scenario": "history reselect opens the private chooser but does not enable playback before successful analysis",
+      "viewport": "1280x800 local-song workspace",
+      "bytes": 732097,
+      "sha256": "23059866b5762d954dce89f2f48b070f0340275288fafa4da62eb25a42f12ba1"
+    },
+    {
+      "file": "desktop-history-reanalysis-playable.png",
+      "scenario": "successful local re-analysis regenerates the chart and restores the normal playable flow",
+      "viewport": "1280x800 generated chart",
+      "bytes": 101225,
+      "sha256": "ded96138308c4400a8f1d17ebd224c089be1789572bb0b98ee7534c57ac7ab2e"
+    },
+    {
+      "file": "desktop-history-migrated.png",
+      "scenario": "a strict version-zero chart-only envelope migrates once into two newest-first entries",
+      "viewport": "1280x800 history",
+      "bytes": 132996,
+      "sha256": "6c1de26930b5cdf5bed2112347671a6178c7f44cc5d22de36746490d353c9572"
+    },
+    {
+      "file": "desktop-history-one-deleted.png",
+      "scenario": "targeted deletion removes one durable chart/result entry and leaves the other visible",
+      "viewport": "1280x800 history",
+      "bytes": 93796,
+      "sha256": "6aa7dce09253cb51560013437fff0ad660ca1d22fa0697bf3eaf085052e6ec0c"
+    },
+    {
+      "file": "desktop-history-cleared.png",
+      "scenario": "clear-all removes only chart/result history and returns to the truthful empty state",
+      "viewport": "1280x800 history",
+      "bytes": 61641,
+      "sha256": "db623c12d01240beec0c286cd86808243ebd0d8f7376de9ba15181d67b02e659"
+    },
+    {
+      "file": "desktop-history-corrupt-discarded.png",
+      "scenario": "unknown nested state is never rendered and is discarded with a truthful isolation notice",
+      "viewport": "1280x800 history",
+      "bytes": 61015,
+      "sha256": "35500134c9617ae48896cc6a6e7128a684572b054765ec66dd2fadae0b15d700"
+    },
+    {
+      "file": "result-to-return-loop.webm",
+      "scenario": "completion, chart-only save, audio-absent reload, explicit reselect, re-analysis, migration, delete, clear, and corruption recovery",
+      "viewport": "1280x800",
+      "bytes": 1791571,
+      "sha256": "ab026829e614e69b318e66c4fa7237d2636869a701485a452a693a355387f025"
+    },
+    {
+      "file": "desktop-history-storage-denied.png",
+      "scenario": "browser storage denial is nonfatal and visibly scoped to chart-history durability",
+      "viewport": "1280x800",
+      "bytes": 431828,
+      "sha256": "c54f59de3391ed1bbdd65cd7cbcde65a4fc26f476aa7a8ef6aeb9d6af1a4a9e3"
+    },
+    {
+      "file": "mobile-chart-history.png",
+      "scenario": "412-pixel chart-only history keeps facts, privacy copy, timeline, reselect, delete, and clear controls contained",
+      "viewport": "412x915 history",
+      "bytes": 409633,
+      "sha256": "8db4757337ac34b38009269608bffbfe2f223605e48d652feb05b8fa9912b2b6"
+    }
+  ]
+}

@@ -65,6 +65,7 @@ export interface RhythmGameExperience {
   readonly provenance?: string;
   readonly license?: string;
   readonly persistLatestResult?: boolean;
+  readonly onResult?: (result: GameResult) => void;
 }
 
 interface RhythmGameProps extends DemoGameProps {
@@ -178,6 +179,13 @@ export function RhythmGame({
       setJudgments(completedResult.judgments);
       setResult(completedResult);
       setLatestResult(completedResult);
+      try {
+        experience.onResult?.(completedResult);
+      } catch {
+        setTransportError(
+          "Results are shown, but chart history could not be updated.",
+        );
+      }
       if (experience.persistLatestResult) {
         try {
           saveLatestResult(storage, completedResult);

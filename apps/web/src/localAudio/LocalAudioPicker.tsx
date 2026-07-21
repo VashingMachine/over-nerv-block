@@ -23,6 +23,11 @@ import {
 import { RhythmCorrectionEditor } from "../correction/RhythmCorrectionEditor";
 import { correctionSourceFingerprint } from "../correction/rhythmCorrection";
 import { playbackCoordinator } from "../demo/playbackCoordinator";
+import { ChartHistoryPanel } from "../history/ChartHistoryPanel";
+import {
+  createChartHistoryStore,
+  type ChartHistoryStore,
+} from "../history/chartHistoryStore";
 import {
   createBeatGridRecoveryStore,
   type BeatGridRecoveryStore,
@@ -88,6 +93,7 @@ interface LocalAudioPickerProps {
   readonly minimumProgressMilliseconds?: number;
   readonly minimumAnalysisMilliseconds?: number;
   readonly recoveryStore?: BeatGridRecoveryStore;
+  readonly historyStore?: ChartHistoryStore;
 }
 
 type RecoveryStatus =
@@ -122,6 +128,7 @@ function readableUnexpectedError(): string {
 const createPreviewUrl = (file: Blob) => URL.createObjectURL(file);
 const revokePreviewUrl = (url: string) => URL.revokeObjectURL(url);
 const browserRecoveryStore = createBeatGridRecoveryStore();
+const browserHistoryStore = createChartHistoryStore();
 
 function waitForVisibleProgress(
   startedAt: number,
@@ -425,6 +432,7 @@ export function LocalAudioPicker({
   minimumProgressMilliseconds = 350,
   minimumAnalysisMilliseconds = 500,
   recoveryStore = browserRecoveryStore,
+  historyStore = browserHistoryStore,
 }: LocalAudioPickerProps) {
   const [state, setState] = useState<PickerState>({ kind: "idle" });
   const [analysisState, setAnalysisState] = useState<AnalysisState>({
@@ -434,6 +442,7 @@ export function LocalAudioPicker({
     useState<QualityRhythmAnalysis | null>(null);
   const [recoveryStatus, setRecoveryStatus] =
     useState<RecoveryStatus>("loading");
+  const [historyRefreshToken, setHistoryRefreshToken] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const operationRef = useRef(0);
   const controllerRef = useRef<AbortController | null>(null);
@@ -840,6 +849,10 @@ export function LocalAudioPicker({
   }, [releaseSelection, stopCurrentWork]);
 
   const chooseFile = () => inputRef.current?.click();
+  const historyChanged = useCallback(
+    () => setHistoryRefreshToken((current) => current + 1),
+    [],
+  );
   const onFileSelected = (event: ChangeEvent<HTMLInputElement>) => {
     if (!capabilityAvailable) {
       return;
@@ -1111,6 +1124,8 @@ export function LocalAudioPicker({
                   analysis={analysisState.grid}
                   audioUrl={state.previewUrl}
                   getPreviewTime={() => previewRef.current?.currentTime ?? 0}
+                  historyStore={historyStore}
+                  onHistoryChanged={historyChanged}
                 />
                 <button
                   className="button button--secondary"
@@ -1145,6 +1160,11 @@ export function LocalAudioPicker({
           onForget={forgetRecoveredGrid}
         />
       ) : null}
+      <ChartHistoryPanel
+        store={historyStore}
+        refreshToken={historyRefreshToken}
+        onSelectLocalSong={chooseFile}
+      />
     </section>
   );
 }

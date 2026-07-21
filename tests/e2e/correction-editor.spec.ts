@@ -168,7 +168,9 @@ test("player corrects a grid and plays regenerated difficulties", async ({
       entries,
       databaseNames:
         typeof indexedDB.databases === "function"
-          ? (await indexedDB.databases()).map((database) => database.name)
+          ? (await indexedDB.databases())
+              .map((database) => database.name)
+              .sort()
           : [],
       cacheKeys: "caches" in window ? await caches.keys() : [],
     };
@@ -177,7 +179,10 @@ test("player corrects a grid and plays regenerated difficulties", async ({
   expect(privacy.entries[0]![0]).toMatch(/^over-nerv-block:rhythm-correction:/);
   expect(privacy.entries[0]![1]).not.toContain("beats");
   expect(privacy.entries[0]![1]).not.toContain(privateFilename);
-  expect(privacy.databaseNames).toEqual(["rhythm-game-recovery"]);
+  expect(privacy.databaseNames).toEqual([
+    "rhythm-game-history",
+    "rhythm-game-recovery",
+  ]);
   expect(privacy.cacheKeys).toEqual([]);
   expect(applicationWrites).toEqual([]);
   expect(consoleMessages.join("\n")).not.toContain(privateFilename);

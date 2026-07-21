@@ -8,13 +8,23 @@ import {
   type QualityRhythmAnalysis,
 } from "@rhythm-game/chart-schema";
 
+import type { ChartHistoryStore } from "../history/chartHistoryStore";
+
 import { GeneratedDifficultyPicker } from "./GeneratedDifficultyPicker";
 
 vi.mock("../demo/DemoGame", () => ({
   RhythmGame: ({
     experience,
   }: {
-    experience: { title: string; startLabel: string; chart: { id: string } };
+    experience: {
+      title: string;
+      startLabel: string;
+      chart: {
+        id: string;
+        notes: readonly { timeSeconds: number }[];
+      };
+      onResult?: (result: never) => void;
+    };
   }) => (
     <div
       data-testid="generated-rhythm-game"
@@ -22,6 +32,34 @@ vi.mock("../demo/DemoGame", () => ({
     >
       <span>{experience.title}</span>
       <button>{experience.startLabel}</button>
+      <button
+        onClick={() =>
+          experience.onResult?.({
+            schemaVersion: 1,
+            songId: experience.chart.id,
+            chartId: experience.chart.id,
+            playedAt: "2026-07-21T06:00:00.000Z",
+            calibrationOffsetMilliseconds: 0,
+            judgments: experience.chart.notes.map((note, noteIndex) => ({
+              noteIndex,
+              noteTimeSeconds: note.timeSeconds,
+              inputTimeSeconds: null,
+              offsetMilliseconds: null,
+              judgment: "miss",
+            })),
+            summary: {
+              perfect: 0,
+              good: 0,
+              miss: experience.chart.notes.length,
+              score: 0,
+              maxCombo: 0,
+              accuracyPercent: 0,
+            },
+          } as never)
+        }
+      >
+        Complete owned run
+      </button>
     </div>
   ),
 }));
@@ -108,6 +146,41 @@ describe("generated difficulty picker", () => {
       screen.getByRole("button", { name: "Start Hard chart" }),
     ).toBeVisible();
     expect(screen.getByText("Your local song · Hard")).toBeVisible();
+  });
+
+  it("saves a completed generated chart/result without audio identity", async () => {
+    const saveEntry = vi.fn<ChartHistoryStore["saveEntry"]>(async () =>
+      Promise.resolve("saved"),
+    );
+    const onHistoryChanged = vi.fn();
+    const historyStore = {
+      readHistory: vi.fn(),
+      saveEntry,
+      deleteEntry: vi.fn(),
+      clearHistory: vi.fn(),
+    } as unknown as ChartHistoryStore;
+    render(
+      <GeneratedDifficultyPicker
+        analysis={analysisFixture()}
+        audioUrl="blob:owned-fixture"
+        historyStore={historyStore}
+        onHistoryChanged={onHistoryChanged}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Complete owned run" }));
+
+    expect(await screen.findByText(/saved to recent history/i)).toBeVisible();
+    expect(saveEntry).toHaveBeenCalledOnce();
+    expect(saveEntry.mock.calls[0]![0]).toMatchObject({
+      kind: "chart_result_history_entry",
+      chart: { difficulty: "easy" },
+      result: { summary: { miss: 4 } },
+    });
+    expect(JSON.stringify(saveEntry.mock.calls[0]![0])).not.toMatch(
+      /filename|blob:|audioUrl/i,
+    );
+    expect(onHistoryChanged).toHaveBeenCalledOnce();
   });
 
   it("restores every chart summary without inventing playable audio", () => {

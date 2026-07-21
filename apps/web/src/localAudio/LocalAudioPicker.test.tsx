@@ -17,6 +17,7 @@ import {
 import type { AnalyzeDecodedAudioOptions } from "../analysis/workerBeatAnalyzer";
 import { BeatAnalysisBoundaryError } from "../analysis/workerBeatAnalyzer";
 import { playbackCoordinator } from "../demo/playbackCoordinator";
+import type { ChartHistoryStore } from "../history/chartHistoryStore";
 import { correctionStorageKey } from "../correction/correctionStore";
 import { createCorrectionDocument } from "../correction/rhythmCorrection";
 import {
@@ -152,6 +153,12 @@ function pickerProps() {
     minimumProgressMilliseconds: 0,
     revokeObjectURL: vi.fn(),
     workerAvailable: true,
+    historyStore: {
+      readHistory: vi.fn(async () => ({ status: "empty" as const })),
+      saveEntry: vi.fn(async () => "saved" as const),
+      deleteEntry: vi.fn(async () => "not_found" as const),
+      clearHistory: vi.fn(async () => "cleared" as const),
+    } satisfies ChartHistoryStore,
   };
 }
 
