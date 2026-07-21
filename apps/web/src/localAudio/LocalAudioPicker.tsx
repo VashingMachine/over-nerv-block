@@ -19,6 +19,8 @@ import {
   analyzeDecodedAudioInWorker,
   BeatAnalysisBoundaryError,
 } from "../analysis/workerBeatAnalyzer";
+import { GeneratedDifficultyPicker } from "../chartGeneration/GeneratedDifficultyPicker";
+import { playbackCoordinator } from "../demo/playbackCoordinator";
 
 import {
   LocalAudioError,
@@ -193,8 +195,11 @@ export function LocalAudioPicker({
   const previewUrlRef = useRef<string | null>(null);
   const selectedFileRef = useRef<File | null>(null);
   const pageWasCachedRef = useRef(false);
+  const previewRef = useRef<HTMLAudioElement>(null);
+  const previewPlaybackOwnerRef = useRef(Symbol("local-audio-preview"));
 
   const releaseSelection = useCallback(() => {
+    playbackCoordinator.release(previewPlaybackOwnerRef.current);
     selectedFileRef.current = null;
     const decoded = decodedRef.current;
     decodedRef.current = null;
@@ -626,11 +631,23 @@ export function LocalAudioPicker({
               </div>
             </dl>
             <audio
+              ref={previewRef}
               className="local-audio__preview"
               controls
               preload="metadata"
               src={state.previewUrl}
               aria-label="Local audio preview"
+              onPlay={() =>
+                playbackCoordinator.claim(previewPlaybackOwnerRef.current, () =>
+                  previewRef.current?.pause(),
+                )
+              }
+              onPause={() =>
+                playbackCoordinator.release(previewPlaybackOwnerRef.current)
+              }
+              onEnded={() =>
+                playbackCoordinator.release(previewPlaybackOwnerRef.current)
+              }
             />
             <div className="beat-analysis" data-testid="beat-analysis">
               {!workerAvailable ? (
@@ -893,6 +910,12 @@ export function LocalAudioPicker({
                 </div>
               ) : null}
             </div>
+            {analysisState.kind === "complete" ? (
+              <GeneratedDifficultyPicker
+                analysis={analysisState.grid}
+                audioUrl={state.previewUrl}
+              />
+            ) : null}
             <div className="local-audio__actions">
               <button className="button button--primary" onClick={chooseFile}>
                 Replace music

@@ -1,0 +1,80 @@
+{
+  "storyId": "06",
+  "previewUrl": "http://127.0.0.1:4173/",
+  "buildIdentifier": "3cd1387fc32d36025a4f703bed2e52feca755667",
+  "capturedAt": "2026-07-21T03:40:32.238Z",
+  "previewType": "loopback production build",
+  "externalDeployment": "not required",
+  "privacy": "repository-owned synthesized inputs only; no filenames, object URLs, raw samples, generated chart files, or result records",
+  "generationAssertions": {
+    "analyzerVersion": "quality-dsp-v1",
+    "generatorVersion": "difficulty-generator-v1",
+    "seed": 0,
+    "noteCounts": {
+      "easy": 4,
+      "medium": 7,
+      "hard": 13
+    },
+    "strictlyIncreasingDensity": true,
+    "completedGeneratedGameplay": true,
+    "insufficientRhythmDeclined": true
+  },
+  "artifacts": [
+    {
+      "file": "desktop-easy.png",
+      "scenario": "Easy selected with safe anchors, rules, versions, and playable action",
+      "viewport": "1280x800",
+      "bytes": 523892,
+      "sha256": "c48d43f395d09afa6b253cd4e36fcc19a1e6e7c923e3dc8c273a1b385fe9a1f9"
+    },
+    {
+      "file": "desktop-medium.png",
+      "scenario": "Medium selected with increased nested note count and playable action",
+      "viewport": "1280x800",
+      "bytes": 523111,
+      "sha256": "d3d724dcbd6f3a8a9cb6e17526e693ec5b15bd08d884017d1690deefa072835f"
+    },
+    {
+      "file": "desktop-hard.png",
+      "scenario": "Hard selected with highest safe density and playable action",
+      "viewport": "1280x800",
+      "bytes": 520444,
+      "sha256": "021fad90087efbdd59fc60fa848683eae71a84c3144ceb2a38d4e68ae860c433"
+    },
+    {
+      "file": "desktop-hard-playing.png",
+      "scenario": "selected local Hard chart playing through pause, resume, restart, and the one-button audio-clock stage",
+      "viewport": "1280x800 section",
+      "bytes": 20291,
+      "sha256": "2d5d259722a4aa422d0bd2ec3832bbb158eda619e44986f2e201a7792270267d"
+    },
+    {
+      "file": "desktop-generated-results.png",
+      "scenario": "generated local chart completed with score, judgments, and retry action",
+      "viewport": "1280x800 section",
+      "bytes": 18166,
+      "sha256": "61eb8dce0d308c24a4395bd3be2e953751da950f6604f092036e8fbf7c803141"
+    },
+    {
+      "file": "desktop-insufficient-rhythm.png",
+      "scenario": "short detected rhythm is declined with a recoverable message and no play action",
+      "viewport": "1280x800 section",
+      "bytes": 258592,
+      "sha256": "416d5f57baeedbaa384f53a3962beea95d4f533d72e9d81d007d2dd195f44c49"
+    },
+    {
+      "file": "generated-difficulties-loop.webm",
+      "scenario": "local analysis, all three difficulties, generated gameplay/results, and safe failure",
+      "viewport": "1280x800",
+      "bytes": 1525819,
+      "sha256": "05eb745eb029c5c1cd26598e50742ca073bbdb8c35553ecf6bdea74b0ecec693"
+    },
+    {
+      "file": "mobile-medium.png",
+      "scenario": "412-pixel Medium selection with readable chart facts, versions, and play action",
+      "viewport": "412x915",
+      "bytes": 1471756,
+      "sha256": "cfe7dd0c4851f8b526d7223483c5670593386a47f92961eff46eded569fb7540"
+    }
+  ]
+}

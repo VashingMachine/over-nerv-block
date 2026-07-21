@@ -4,7 +4,11 @@ import {
   baselineAnalyzerVersion,
   beatGridSchema,
   buildManifestSchema,
+  chartGenerationContractVersion,
+  chartGenerationRules,
+  chartGeneratorVersion,
   gameResultSchema,
+  generatedRhythmChartSchema,
   goodWindowMilliseconds,
   noteJudgmentSchema,
   perfectWindowMilliseconds,
@@ -120,6 +124,125 @@ describe("shared contracts", () => {
           { timeSeconds: 3, lane: 0, source: "beat" },
         ],
       }),
+    ).toThrow();
+  });
+
+  it("accepts a versioned generated chart that remains playable", () => {
+    expect(
+      generatedRhythmChartSchema.parse({
+        schemaVersion,
+        kind: "generated_rhythm_chart",
+        id: "generated-owned-easy",
+        title: "Generated Easy chart",
+        durationSeconds: 8,
+        analyzerVersion: qualityAnalyzerVersion,
+        generatorVersion: chartGeneratorVersion,
+        generatorContractVersion: chartGenerationContractVersion,
+        difficulty: "easy",
+        seed: 0,
+        generation: {
+          inputBeatCount: 13,
+          eligibleBeatCount: 4,
+          selectedNoteCount: 4,
+          minimumSpacingSeconds:
+            chartGenerationRules.difficulties.easy.minimumSpacingSeconds,
+          maximumNotesPerMinute:
+            chartGenerationRules.difficulties.easy.maximumNotesPerMinute,
+          lowConfidenceGuardApplied: false,
+        },
+        notes: [1, 3, 5, 7].map((timeSeconds) => ({
+          timeSeconds,
+          lane: 0,
+          source: "downbeat",
+        })),
+      }),
+    ).toMatchObject({
+      analyzerVersion: qualityAnalyzerVersion,
+      generatorVersion: chartGeneratorVersion,
+      difficulty: "easy",
+    });
+  });
+
+  it.each([
+    ["wrong generator", { generatorVersion: "difficulty-generator-v2" }],
+    ["wrong analyzer", { analyzerVersion: baselineAnalyzerVersion }],
+    ["fractional seed", { seed: 0.5 }],
+    [
+      "mismatched difficulty rules",
+      {
+        generation: {
+          inputBeatCount: 13,
+          eligibleBeatCount: 4,
+          selectedNoteCount: 4,
+          minimumSpacingSeconds: 0.45,
+          maximumNotesPerMinute: 48,
+          lowConfidenceGuardApplied: false,
+        },
+      },
+    ],
+    [
+      "eligible beats exceed input beats",
+      {
+        generation: {
+          inputBeatCount: 3,
+          eligibleBeatCount: 4,
+          selectedNoteCount: 4,
+          minimumSpacingSeconds: 0.9,
+          maximumNotesPerMinute: 48,
+          lowConfidenceGuardApplied: false,
+        },
+      },
+    ],
+    [
+      "intro note",
+      {
+        notes: [0.4, 3, 5, 7].map((timeSeconds) => ({
+          timeSeconds,
+          lane: 0,
+          source: "downbeat",
+        })),
+      },
+    ],
+    [
+      "manual note",
+      {
+        notes: [1, 3, 5, 7].map((timeSeconds, index) => ({
+          timeSeconds,
+          lane: 0,
+          source: index === 0 ? "manual" : "downbeat",
+        })),
+      },
+    ],
+  ])("rejects generated-chart contract violation: %s", (_case, mutation) => {
+    const base = {
+      schemaVersion,
+      kind: "generated_rhythm_chart" as const,
+      id: "generated-owned-easy",
+      title: "Generated Easy chart",
+      durationSeconds: 8,
+      analyzerVersion: qualityAnalyzerVersion,
+      generatorVersion: chartGeneratorVersion,
+      generatorContractVersion: chartGenerationContractVersion,
+      difficulty: "easy" as const,
+      seed: 0,
+      generation: {
+        inputBeatCount: 13,
+        eligibleBeatCount: 4,
+        selectedNoteCount: 4,
+        minimumSpacingSeconds:
+          chartGenerationRules.difficulties.easy.minimumSpacingSeconds,
+        maximumNotesPerMinute:
+          chartGenerationRules.difficulties.easy.maximumNotesPerMinute,
+        lowConfidenceGuardApplied: false,
+      },
+      notes: [1, 3, 5, 7].map((timeSeconds) => ({
+        timeSeconds,
+        lane: 0 as const,
+        source: "downbeat" as const,
+      })),
+    };
+    expect(() =>
+      generatedRhythmChartSchema.parse({ ...base, ...mutation }),
     ).toThrow();
   });
 

@@ -22,15 +22,15 @@ export function App() {
       <main>
         <section className="hero">
           <div className="eyebrow">
-            <span>05</span>
-            <span>Downbeats and confidence</span>
+            <span>06</span>
+            <span>Automatic playable difficulties</span>
           </div>
           <div className="hero-copy">
             <p className="kicker">Your music. Your timing.</p>
             <h1>Make every beat playable.</h1>
             <p className="lede">
-              Prepare music privately, detect beats and bar starts off the main
-              thread, and see uncertainty instead of hidden guesses. Nothing is
+              Prepare music privately, detect beats and bar starts, then choose
+              an automatically generated Easy, Medium, or Hard chart. Nothing is
               uploaded.
             </p>
           </div>
@@ -41,7 +41,7 @@ export function App() {
       </main>
 
       <footer className="footer">
-        <p>Stage 05 / Downbeats and confidence</p>
+        <p>Stage 06 / Automatic playable difficulties</p>
         <p>Runs locally in your browser.</p>
       </footer>
     </div>

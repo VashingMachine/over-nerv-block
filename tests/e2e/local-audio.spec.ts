@@ -198,7 +198,9 @@ test("player privately prepares and clears a valid local song", async ({
   );
   expect(beatCount).toBeGreaterThanOrEqual(12);
   expect(beatCount).toBeLessThanOrEqual(14);
-  await expect(page.getByText("quality-dsp-v1")).toBeVisible();
+  await expect(
+    page.getByTestId("beat-grid").getByText("quality-dsp-v1"),
+  ).toBeVisible();
   await expect(
     page.getByText("Meter", { exact: true }).locator("..").locator("dd"),
   ).toHaveText("4/4");

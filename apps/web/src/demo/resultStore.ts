@@ -2,6 +2,7 @@ import {
   gameResultSchema,
   type GameResult,
   type NoteJudgment,
+  type RhythmChart,
 } from "@rhythm-game/chart-schema";
 
 import { demoChart, demoSong } from "./demoContent";
@@ -49,11 +50,27 @@ export function createGameResult(
   calibrationOffsetMilliseconds: number,
   playedAt: string,
 ): GameResult {
-  const complete = completeJudgments(demoChart, judgments);
+  return createGameResultForChart(
+    demoChart,
+    demoSong.id,
+    judgments,
+    calibrationOffsetMilliseconds,
+    playedAt,
+  );
+}
+
+export function createGameResultForChart(
+  chart: RhythmChart,
+  songId: string,
+  judgments: readonly NoteJudgment[],
+  calibrationOffsetMilliseconds: number,
+  playedAt: string,
+): GameResult {
+  const complete = completeJudgments(chart, judgments);
   return gameResultSchema.parse({
     schemaVersion: 1,
-    songId: demoSong.id,
-    chartId: demoChart.id,
+    songId,
+    chartId: chart.id,
     playedAt,
     calibrationOffsetMilliseconds,
     judgments: complete,

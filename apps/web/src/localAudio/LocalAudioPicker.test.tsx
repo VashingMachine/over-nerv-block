@@ -16,6 +16,7 @@ import {
 
 import type { AnalyzeDecodedAudioOptions } from "../analysis/workerBeatAnalyzer";
 import { BeatAnalysisBoundaryError } from "../analysis/workerBeatAnalyzer";
+import { playbackCoordinator } from "../demo/playbackCoordinator";
 
 import { LocalAudioPicker } from "./LocalAudioPicker";
 import { LocalAudioError } from "./filePolicy";
@@ -188,6 +189,33 @@ describe("private local-audio picker", () => {
       "blob:private-preview",
     );
     expect(props.createObjectURL).toHaveBeenCalledOnce();
+  });
+
+  it("hands preview playback to and from the shared page owner", async () => {
+    const props = pickerProps();
+    const handle = decodedAudio();
+    render(
+      <LocalAudioPicker
+        {...props}
+        decodeAudio={vi.fn().mockResolvedValue(handle.decoded)}
+      />,
+    );
+    select(selectedFile());
+    const preview = await screen.findByLabelText("Local audio preview");
+    const previousOwner = Symbol("previous-game");
+    const stopPrevious = vi.fn();
+    playbackCoordinator.claim(previousOwner, stopPrevious);
+
+    fireEvent.play(preview);
+    expect(stopPrevious).toHaveBeenCalledOnce();
+
+    const pausePreview = vi
+      .spyOn(preview as HTMLAudioElement, "pause")
+      .mockImplementation(() => undefined);
+    const nextOwner = Symbol("next-game");
+    playbackCoordinator.claim(nextOwner, vi.fn());
+    expect(pausePreview).toHaveBeenCalledOnce();
+    playbackCoordinator.release(nextOwner);
   });
 
   it("rejects invalid input before decode without exposing its name", () => {

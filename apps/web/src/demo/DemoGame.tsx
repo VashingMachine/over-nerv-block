@@ -1,16 +1,28 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
-import type { GameResult, NoteJudgment } from "@rhythm-game/chart-schema";
+import type {
+  GameResult,
+  NoteJudgment,
+  RhythmChart,
+} from "@rhythm-game/chart-schema";
 
 import {
   createWebAudioEngine,
   type AudioEngine,
   type AudioEngineFactory,
 } from "./audioEngine";
-import { countdownSeconds, demoChart, demoSong } from "./demoContent";
+import { demoChart, demoSong } from "./demoContent";
 import { loadPhaser } from "./phaserRuntime";
+import { playbackCoordinator } from "./playbackCoordinator";
 import {
-  createGameResult,
+  createGameResultForChart,
   getBrowserStorage,
   readCalibrationOffset,
   readLatestResult,
@@ -39,11 +51,31 @@ interface DemoGameProps {
   now?: () => string;
 }
 
+export interface RhythmGameExperience {
+  readonly songId: string;
+  readonly title: string;
+  readonly artist: string;
+  readonly durationSeconds: number;
+  readonly bpm: number;
+  readonly audioUrl: string;
+  readonly chart: RhythmChart;
+  readonly sectionLabel: string;
+  readonly startLabel: string;
+  readonly retryLabel?: string;
+  readonly provenance?: string;
+  readonly license?: string;
+  readonly persistLatestResult?: boolean;
+}
+
+interface RhythmGameProps extends DemoGameProps {
+  readonly experience: RhythmGameExperience;
+}
+
 function readableError(error: unknown): string {
   if (error instanceof Error && error.message.trim()) {
     return error.message;
   }
-  return "The demo track could not start.";
+  return "The track could not start.";
 }
 
 const currentIsoTimestamp = () => new Date().toISOString();
@@ -56,10 +88,12 @@ function judgmentLabel(record: NoteJudgment): string {
   return `${record.judgment === "perfect" ? "Perfect" : "Good"} ${signedOffset >= 0 ? "+" : ""}${signedOffset} ms`;
 }
 
-export function DemoGame({
+export function RhythmGame({
+  experience,
   createAudioEngine = createWebAudioEngine,
   now = currentIsoTimestamp,
-}: DemoGameProps) {
+}: RhythmGameProps) {
+  const { chart } = experience;
   const [phase, setPhase] = useState<GamePhase>("idle");
   const [countdownBeat, setCountdownBeat] = useState(3);
   const [songTime, setSongTime] = useState(0);
@@ -76,14 +110,18 @@ export function DemoGame({
   );
   const [calibrationDraft, setCalibrationDraft] = useState(calibrationOffset);
   const [latestResult, setLatestResult] = useState<GameResult | null>(() =>
-    readLatestResult(storage),
+    experience.persistLatestResult ? readLatestResult(storage) : null,
   );
   const [result, setResult] = useState<GameResult | null>(null);
   const engineRef = useRef<AudioEngine | null>(null);
   const judgmentsRef = useRef<NoteJudgment[]>([]);
   const judgedIndexesRef = useRef<ReadonlySet<number>>(new Set());
+  const registerInputRef = useRef<(eventTimestamp?: number) => boolean>(
+    () => false,
+  );
   const sessionRef = useRef(0);
   const pausedFromPhaseRef = useRef<"countdown" | "playing">("playing");
+  const playbackOwnerRef = useRef(Symbol("rhythm-game-playback"));
 
   useEffect(() => {
     judgmentsRef.current = judgments;
@@ -100,10 +138,23 @@ export function DemoGame({
   useEffect(
     () => () => {
       sessionRef.current += 1;
+      playbackCoordinator.release(playbackOwnerRef.current);
       disposeEngine();
     },
     [disposeEngine],
   );
+
+  const stopForPlaybackHandoff = useCallback(() => {
+    sessionRef.current += 1;
+    disposeEngine();
+    judgmentsRef.current = [];
+    setJudgments([]);
+    setResult(null);
+    setSongTime(0);
+    setInputFeedback("Waiting for the first note");
+    setTransportError("Playback stopped because another track started.");
+    setPhase("idle");
+  }, [disposeEngine]);
 
   const getSongTime = useCallback(
     () => engineRef.current?.songTimeSeconds() ?? -Infinity,
@@ -116,7 +167,9 @@ export function DemoGame({
 
   const finish = useCallback(
     (currentJudgments: readonly NoteJudgment[]) => {
-      const completedResult = createGameResult(
+      const completedResult = createGameResultForChart(
+        chart,
+        experience.songId,
         currentJudgments,
         calibrationOffset,
         now(),
@@ -125,17 +178,23 @@ export function DemoGame({
       setJudgments(completedResult.judgments);
       setResult(completedResult);
       setLatestResult(completedResult);
-      try {
-        saveLatestResult(storage, completedResult);
-      } catch {
-        setTransportError("Results are shown, but could not be saved locally.");
+      if (experience.persistLatestResult) {
+        try {
+          saveLatestResult(storage, completedResult);
+        } catch {
+          setTransportError(
+            "Results are shown, but could not be saved locally.",
+          );
+        }
       }
+      playbackCoordinator.release(playbackOwnerRef.current);
       setPhase("finished");
     },
-    [calibrationOffset, now, storage],
+    [calibrationOffset, chart, experience, now, storage],
   );
 
   const start = useCallback(async () => {
+    playbackCoordinator.claim(playbackOwnerRef.current, stopForPlaybackHandoff);
     sessionRef.current += 1;
     const sessionId = sessionRef.current;
     disposeEngine();
@@ -155,9 +214,9 @@ export function DemoGame({
 
     try {
       await engine.start({
-        audioUrl: new URL(demoSong.audioPath, document.baseURI).toString(),
+        audioUrl: new URL(experience.audioUrl, document.baseURI).toString(),
         beforeSchedule: loadPhaser,
-        countdownSeconds,
+        countdownSeconds: (60 / experience.bpm) * 3,
         onEnded: () => {
           if (
             engineRef.current === engine &&
@@ -174,26 +233,28 @@ export function DemoGame({
       if (engineRef.current === engine && sessionRef.current === sessionId) {
         engine.dispose();
         engineRef.current = null;
+        playbackCoordinator.release(playbackOwnerRef.current);
         setErrorMessage(readableError(error));
         setPhase("error");
       }
     }
-  }, [createAudioEngine, disposeEngine, finish]);
+  }, [
+    createAudioEngine,
+    disposeEngine,
+    experience,
+    finish,
+    stopForPlaybackHandoff,
+  ]);
 
   const registerInput = useCallback(
     (eventTimestamp = performance.now()) => {
       if (phase !== "playing") {
-        return;
+        return false;
       }
       const rawSongTime =
         engineRef.current?.songTimeForEvent(eventTimestamp) ?? getSongTime();
       const current = judgmentsRef.current;
-      const next = recordInput(
-        demoChart,
-        current,
-        rawSongTime,
-        calibrationOffset,
-      );
+      const next = recordInput(chart, current, rawSongTime, calibrationOffset);
       const added = next.find(
         (record) =>
           record.inputTimeSeconds !== null &&
@@ -202,9 +263,13 @@ export function DemoGame({
       judgmentsRef.current = next;
       setJudgments(next);
       setInputFeedback(added ? judgmentLabel(added) : "No note in range");
+      return true;
     },
-    [calibrationOffset, getSongTime, phase],
+    [calibrationOffset, chart, getSongTime, phase],
   );
+  useLayoutEffect(() => {
+    registerInputRef.current = registerInput;
+  }, [registerInput]);
 
   const pause = useCallback(async () => {
     if ((phase !== "countdown" && phase !== "playing") || !engineRef.current) {
@@ -263,18 +328,18 @@ export function DemoGame({
   }, [phase]);
 
   useEffect(() => {
-    if (phase !== "playing") {
-      return;
-    }
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.code === "Space" && !event.repeat) {
+      if (
+        event.code === "Space" &&
+        !event.repeat &&
+        registerInputRef.current(event.timeStamp)
+      ) {
         event.preventDefault();
-        registerInput(event.timeStamp);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [phase, registerInput]);
+  }, []);
 
   useEffect(() => {
     if (phase !== "countdown" && phase !== "playing") {
@@ -283,11 +348,11 @@ export function DemoGame({
     const timer = window.setInterval(() => {
       const currentSongTime = getSongTime();
       if (currentSongTime >= 0) {
-        setSongTime(Math.min(currentSongTime, demoSong.durationSeconds));
+        setSongTime(Math.min(currentSongTime, experience.durationSeconds));
         setPhase("playing");
         const current = judgmentsRef.current;
         const next = collectExpiredMisses(
-          demoChart,
+          chart,
           current,
           currentSongTime,
           calibrationOffset,
@@ -299,11 +364,11 @@ export function DemoGame({
         }
         return;
       }
-      const beatSeconds = 60 / demoSong.bpm;
+      const beatSeconds = 60 / experience.bpm;
       setCountdownBeat(Math.max(1, Math.ceil(-currentSongTime / beatSeconds)));
     }, 50);
     return () => window.clearInterval(timer);
-  }, [calibrationOffset, getSongTime, phase]);
+  }, [calibrationOffset, chart, experience, getSongTime, phase]);
 
   useEffect(() => {
     if (phase !== "countdown" && phase !== "playing") {
@@ -340,20 +405,23 @@ export function DemoGame({
     phase === "countdown" || phase === "playing" || phase === "paused";
 
   return (
-    <section className="demo" aria-labelledby="demo-title">
+    <section
+      className="demo"
+      aria-labelledby={`rhythm-game-${experience.songId}`}
+    >
       <div className="track-card">
         <div className="track-art" aria-hidden="true">
-          <span>120</span>
+          <span>{Math.round(experience.bpm)}</span>
           <small>BPM</small>
         </div>
         <div className="track-copy">
-          <p className="section-label">Bundled demo · one lane</p>
-          <h2 id="demo-title">{demoSong.title}</h2>
-          <p>{demoSong.artist}</p>
+          <p className="section-label">{experience.sectionLabel}</p>
+          <h2 id={`rhythm-game-${experience.songId}`}>{experience.title}</h2>
+          <p>{experience.artist}</p>
           <dl className="track-facts">
             <div>
               <dt>Length</dt>
-              <dd>{demoSong.durationSeconds} seconds</dd>
+              <dd>{experience.durationSeconds} seconds</dd>
             </div>
             <div>
               <dt>Controls</dt>
@@ -370,14 +438,18 @@ export function DemoGame({
                 {calibrationOffset} ms
               </dd>
             </div>
-            <div>
-              <dt>Origin</dt>
-              <dd>{demoSong.provenance}</dd>
-            </div>
-            <div>
-              <dt>License</dt>
-              <dd>{demoSong.license}</dd>
-            </div>
+            {experience.provenance ? (
+              <div>
+                <dt>Origin</dt>
+                <dd>{experience.provenance}</dd>
+              </div>
+            ) : null}
+            {experience.license ? (
+              <div>
+                <dt>License</dt>
+                <dd>{experience.license}</dd>
+              </div>
+            ) : null}
           </dl>
           {latestResult && phase === "idle" && (
             <p className="previous-result">
@@ -394,7 +466,7 @@ export function DemoGame({
               type="button"
               onClick={start}
             >
-              {phase === "finished" ? "Play again" : "Start demo"}
+              {phase === "finished" ? "Play again" : experience.startLabel}
             </button>
           )}
           {phase === "loading" && (
@@ -491,7 +563,7 @@ export function DemoGame({
             </span>
           </div>
           <RhythmGameCanvas
-            chart={demoChart}
+            chart={chart}
             getSongTime={getSongTime}
             isNoteJudged={isNoteJudged}
             onInput={registerInput}
@@ -511,11 +583,11 @@ export function DemoGame({
           <div className="song-progress">
             <progress
               aria-label="Song progress"
-              max={demoSong.durationSeconds}
+              max={experience.durationSeconds}
               value={songTime}
             />
             <span data-testid="song-time">
-              {songTime.toFixed(1)}s / {demoSong.durationSeconds}s
+              {songTime.toFixed(1)}s / {experience.durationSeconds}s
             </span>
           </div>
           <div className="play-controls">
@@ -608,10 +680,30 @@ export function DemoGame({
           <h3>We couldn’t start the track.</h3>
           <p>{errorMessage}</p>
           <button className="button" type="button" onClick={start}>
-            Retry demo
+            {experience.retryLabel ?? "Retry track"}
           </button>
         </div>
       )}
     </section>
   );
+}
+
+const demoExperience: RhythmGameExperience = {
+  songId: demoSong.id,
+  title: demoSong.title,
+  artist: demoSong.artist,
+  durationSeconds: demoSong.durationSeconds,
+  bpm: demoSong.bpm,
+  audioUrl: demoSong.audioPath,
+  chart: demoChart,
+  sectionLabel: "Bundled demo · one lane",
+  startLabel: "Start demo",
+  retryLabel: "Retry demo",
+  provenance: demoSong.provenance,
+  license: demoSong.license,
+  persistLatestResult: true,
+};
+
+export function DemoGame(props: DemoGameProps) {
+  return <RhythmGame {...props} experience={demoExperience} />;
 }

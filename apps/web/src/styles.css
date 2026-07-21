@@ -703,8 +703,184 @@ h1 {
   color: #bbb6ac;
 }
 
+.generated-difficulties {
+  min-width: 0;
+  margin-top: 1.25rem;
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  border: 1px solid rgb(168 220 107 / 46%);
+  background: #141311;
+}
+
+.generated-difficulties h4,
+.generated-difficulties h5 {
+  margin: 0;
+  letter-spacing: -0.035em;
+}
+
+.generated-difficulties h4 {
+  font-size: clamp(1.4rem, 2.8vw, 2.2rem);
+}
+
+.generated-difficulties--error {
+  border-color: rgb(236 90 61 / 56%);
+}
+
+.difficulty-picker {
+  display: grid;
+  margin-top: 1.25rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.difficulty-card {
+  display: flex;
+  min-width: 0;
+  min-height: 9rem;
+  padding: 1rem;
+  border: 1px solid rgb(245 241 233 / 18%);
+  color: #f5f1e9;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 0.45rem;
+  text-align: left;
+  background: #1a1816;
+  cursor: pointer;
+}
+
+.difficulty-card:hover,
+.difficulty-card:focus-visible {
+  border-color: #e7c467;
+}
+
+.difficulty-card--selected {
+  border-color: #a8dc6b;
+  box-shadow: inset 0 -0.25rem #a8dc6b;
+}
+
+.difficulty-card strong {
+  font-size: 1.05rem;
+}
+
+.difficulty-card span {
+  color: #bbb6ac;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.difficulty-card small {
+  margin-top: auto;
+  color: #a8dc6b;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.generated-chart {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid rgb(245 241 233 / 14%);
+}
+
+.generated-chart__heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.generated-chart__heading h5 {
+  font-size: 1.4rem;
+}
+
+.generated-chart__heading > strong {
+  color: #a8dc6b;
+}
+
+.generated-chart__facts {
+  display: grid;
+  margin: 1rem 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid rgb(245 241 233 / 14%);
+  border-left: 1px solid rgb(245 241 233 / 14%);
+}
+
+.generated-chart__facts div {
+  min-width: 0;
+  padding: 0.7rem;
+  border-right: 1px solid rgb(245 241 233 / 14%);
+  border-bottom: 1px solid rgb(245 241 233 / 14%);
+}
+
+.generated-chart__facts dt,
+.generated-chart__facts dd {
+  margin: 0;
+}
+
+.generated-chart__facts dt {
+  color: #9e9a92;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 0.64rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.generated-chart__facts dd {
+  margin-top: 0.3rem;
+  overflow-wrap: anywhere;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.generated-chart__timeline {
+  position: relative;
+  height: 3.5rem;
+  overflow: hidden;
+  border: 1px solid rgb(245 241 233 / 16%);
+  background: linear-gradient(90deg, rgb(168 220 107 / 8%), transparent);
+}
+
+.generated-chart__note {
+  position: absolute;
+  bottom: 0.5rem;
+  width: 3px;
+  height: 2.25rem;
+  background: #e7c467;
+  transform: translateX(-1px);
+}
+
+.generated-chart__note--downbeat {
+  width: 5px;
+  height: 2.7rem;
+  background: #ec5a3d;
+  transform: translateX(-2px);
+}
+
+.generated-chart__note--onset {
+  background: #a8dc6b;
+}
+
+.generated-chart__guard {
+  margin-bottom: 0;
+  color: #9e9a92;
+  font-size: 0.78rem;
+}
+
+.generated-difficulties .demo {
+  width: 100%;
+  margin: 1.5rem 0 0;
+}
+
+.generated-difficulties .track-card {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.generated-difficulties .track-art {
+  display: none;
+}
+
 .local-audio__actions {
   display: flex;
+  margin-top: 1.25rem;
   flex-wrap: wrap;
   gap: 0.7rem;
 }
@@ -1095,6 +1271,10 @@ h1 {
     align-items: start;
   }
 
+  .generated-difficulties .track-card {
+    grid-template-columns: 1fr;
+  }
+
   .local-audio {
     grid-template-columns: 1fr;
   }
@@ -1158,8 +1338,14 @@ h1 {
 
   .beat-grid__summary,
   .beat-grid__times,
-  .beat-grid__confidence dl {
+  .beat-grid__confidence dl,
+  .difficulty-picker,
+  .generated-chart__facts {
     grid-template-columns: 1fr;
+  }
+
+  .difficulty-card {
+    min-height: 0;
   }
 
   .beat-grid__alternatives li {

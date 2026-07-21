@@ -6,6 +6,35 @@ export const goodWindowMilliseconds = 120;
 export const baselineAnalyzerVersion = "baseline-dsp-v1" as const;
 export const qualityAnalyzerVersion = "quality-dsp-v1" as const;
 export const qualityAnalysisContractVersion = 1 as const;
+export const chartGeneratorVersion = "difficulty-generator-v1" as const;
+export const chartGenerationContractVersion = 1 as const;
+export const chartDifficulties = ["easy", "medium", "hard"] as const;
+export const chartGenerationRules = {
+  introGuardSeconds: 0.5,
+  outroGuardSeconds: 0.25,
+  lowConfidenceThreshold: 0.6,
+  minimumNotes: 2,
+  difficulties: {
+    easy: {
+      minimumSpacingSeconds: 0.9,
+      maximumNotesPerMinute: 48,
+      minimumStrength: 0.45,
+      lowConfidenceMinimumStrength: 0.6,
+    },
+    medium: {
+      minimumSpacingSeconds: 0.45,
+      maximumNotesPerMinute: 96,
+      minimumStrength: 0.32,
+      lowConfidenceMinimumStrength: 0.5,
+    },
+    hard: {
+      minimumSpacingSeconds: 0.24,
+      maximumNotesPerMinute: 180,
+      minimumStrength: 0.18,
+      lowConfidenceMinimumStrength: 0.4,
+    },
+  },
+} as const;
 export const qualityAnalysisThresholds = {
   lowOverallConfidence: 0.6,
   maximumUncertainDownbeatConfidence: 0.55,
@@ -395,6 +424,106 @@ export type ConfidenceComponents = z.infer<typeof confidenceComponentsSchema>;
 export type QualityBeatPoint = z.infer<typeof qualityBeatPointSchema>;
 export type QualityTempoCandidate = z.infer<typeof qualityTempoCandidateSchema>;
 export type QualityRhythmAnalysis = z.infer<typeof qualityRhythmAnalysisSchema>;
+
+export const chartDifficultySchema = z.enum(chartDifficulties);
+
+const generatedChartIdentitySchema = z.object({
+  kind: z.literal("generated_rhythm_chart"),
+  analyzerVersion: z.literal(qualityAnalyzerVersion),
+  generatorVersion: z.literal(chartGeneratorVersion),
+  generatorContractVersion: z.literal(chartGenerationContractVersion),
+  difficulty: chartDifficultySchema,
+  seed: z.number().int().nonnegative(),
+  generation: z.object({
+    inputBeatCount: z.number().int().min(2),
+    eligibleBeatCount: z.number().int().nonnegative(),
+    selectedNoteCount: z.number().int().min(chartGenerationRules.minimumNotes),
+    minimumSpacingSeconds: z.number().positive(),
+    maximumNotesPerMinute: z.number().positive(),
+    lowConfidenceGuardApplied: z.boolean(),
+  }),
+});
+
+export const generatedRhythmChartSchema = rhythmChartSchema
+  .and(generatedChartIdentitySchema)
+  .superRefine((chart, context) => {
+    const rules = chartGenerationRules.difficulties[chart.difficulty];
+    if (chart.generation.selectedNoteCount !== chart.notes.length) {
+      context.addIssue({
+        code: "custom",
+        message: "Selected-note count must match the generated chart",
+        path: ["generation", "selectedNoteCount"],
+      });
+    }
+    if (chart.generation.eligibleBeatCount < chart.notes.length) {
+      context.addIssue({
+        code: "custom",
+        message: "Eligible-beat count cannot be lower than selected notes",
+        path: ["generation", "eligibleBeatCount"],
+      });
+    }
+    if (chart.generation.eligibleBeatCount > chart.generation.inputBeatCount) {
+      context.addIssue({
+        code: "custom",
+        message: "Eligible-beat count cannot exceed input beats",
+        path: ["generation", "eligibleBeatCount"],
+      });
+    }
+    if (
+      chart.generation.minimumSpacingSeconds !== rules.minimumSpacingSeconds ||
+      chart.generation.maximumNotesPerMinute !== rules.maximumNotesPerMinute
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Generated-chart rules must match the declared difficulty",
+        path: ["generation"],
+      });
+    }
+
+    chart.notes.forEach((note, index) => {
+      if (note.source === "manual") {
+        context.addIssue({
+          code: "custom",
+          message: "An automatic chart cannot contain manual notes",
+          path: ["notes", index, "source"],
+        });
+      }
+      if (
+        note.timeSeconds < chartGenerationRules.introGuardSeconds ||
+        note.timeSeconds >
+          chart.durationSeconds - chartGenerationRules.outroGuardSeconds
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "Generated note falls inside an intro or outro guard",
+          path: ["notes", index, "timeSeconds"],
+        });
+      }
+      if (
+        index > 0 &&
+        note.timeSeconds - chart.notes[index - 1]!.timeSeconds <
+          rules.minimumSpacingSeconds - 0.000_001
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "Generated notes violate minimum spacing",
+          path: ["notes", index, "timeSeconds"],
+        });
+      }
+    });
+
+    const density = chart.notes.length / (chart.durationSeconds / 60);
+    if (density > rules.maximumNotesPerMinute + 0.000_001) {
+      context.addIssue({
+        code: "custom",
+        message: "Generated chart exceeds maximum density",
+        path: ["notes"],
+      });
+    }
+  });
+
+export type ChartDifficulty = z.infer<typeof chartDifficultySchema>;
+export type GeneratedRhythmChart = z.infer<typeof generatedRhythmChartSchema>;
 
 export const judgmentSchema = z.enum(["perfect", "good", "miss"]);
 
