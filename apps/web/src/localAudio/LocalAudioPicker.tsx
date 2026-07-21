@@ -6,6 +6,17 @@ import {
   type ChangeEvent,
 } from "react";
 
+import type { BeatGrid } from "@rhythm-game/chart-schema";
+
+import type {
+  BeatAnalysisProgress,
+  BeatAnalysisStage,
+} from "../analysis/beatAnalyzer";
+import {
+  analyzeDecodedAudioInWorker,
+  BeatAnalysisBoundaryError,
+} from "../analysis/workerBeatAnalyzer";
+
 import {
   LocalAudioError,
   validateLocalAudioFile,
@@ -21,6 +32,7 @@ type DecodeAudio = (
   file: File,
   options: DecodeLocalAudioOptions,
 ) => Promise<DisposableDecodedAudio>;
+type AnalyzeBeats = typeof analyzeDecodedAudioInWorker;
 
 type PickerState =
   | { readonly kind: "idle"; readonly notice?: string }
@@ -38,12 +50,29 @@ type PickerState =
       readonly previewUrl: string;
     };
 
+type AnalysisState =
+  | { readonly kind: "idle"; readonly notice?: string }
+  | {
+      readonly kind: "running";
+      readonly stage: "preparing" | BeatAnalysisStage;
+      readonly percent: number;
+    }
+  | {
+      readonly kind: "error";
+      readonly message: string;
+      readonly recovery: "retry" | "replace";
+    }
+  | { readonly kind: "complete"; readonly grid: BeatGrid };
+
 interface LocalAudioPickerProps {
   readonly decodeAudio?: DecodeAudio;
+  readonly analyzeBeats?: AnalyzeBeats;
   readonly capabilityAvailable?: boolean;
+  readonly workerAvailable?: boolean;
   readonly createObjectURL?: (file: Blob) => string;
   readonly revokeObjectURL?: (url: string) => void;
   readonly minimumProgressMilliseconds?: number;
+  readonly minimumAnalysisMilliseconds?: number;
 }
 
 function hasBrowserAudioCapability(): boolean {
@@ -53,6 +82,10 @@ function hasBrowserAudioCapability(): boolean {
     typeof URL.createObjectURL === "function" &&
     typeof URL.revokeObjectURL === "function"
   );
+}
+
+function hasWorkerCapability(): boolean {
+  return typeof Worker === "function";
 }
 
 function readableUnexpectedError(): string {
@@ -104,22 +137,40 @@ function formatDuration(seconds: number): string {
   return `${seconds.toFixed(1)} seconds`;
 }
 
+const analysisStageLabels: Record<"preparing" | BeatAnalysisStage, string> = {
+  preparing: "Preparing decoded samples",
+  downmix: "Combining audio channels",
+  resample: "Resampling for analysis",
+  onset_envelope: "Finding rhythmic onsets",
+  tempo: "Estimating tempo candidates",
+  beat_tracking: "Tracking the beat grid",
+  finalizing: "Validating the beat grid",
+};
+
 export function LocalAudioPicker({
   decodeAudio = decodeLocalAudio,
+  analyzeBeats = analyzeDecodedAudioInWorker,
   capabilityAvailable = hasBrowserAudioCapability(),
+  workerAvailable = hasWorkerCapability(),
   createObjectURL = createPreviewUrl,
   revokeObjectURL = revokePreviewUrl,
   minimumProgressMilliseconds = 350,
+  minimumAnalysisMilliseconds = 500,
 }: LocalAudioPickerProps) {
   const [state, setState] = useState<PickerState>({ kind: "idle" });
+  const [analysisState, setAnalysisState] = useState<AnalysisState>({
+    kind: "idle",
+  });
   const inputRef = useRef<HTMLInputElement>(null);
   const operationRef = useRef(0);
   const controllerRef = useRef<AbortController | null>(null);
   const decodedRef = useRef<DisposableDecodedAudio | null>(null);
   const previewUrlRef = useRef<string | null>(null);
+  const selectedFileRef = useRef<File | null>(null);
   const pageWasCachedRef = useRef(false);
 
   const releaseSelection = useCallback(() => {
+    selectedFileRef.current = null;
     const decoded = decodedRef.current;
     decodedRef.current = null;
     decoded?.release();
@@ -143,6 +194,7 @@ export function LocalAudioPicker({
       stopCurrentWork();
       releaseSelection();
       setState({ kind: "idle", notice });
+      setAnalysisState({ kind: "idle" });
       if (inputRef.current) {
         inputRef.current.value = "";
       }
@@ -156,6 +208,7 @@ export function LocalAudioPicker({
       const operation = operationRef.current;
       stopCurrentWork();
       releaseSelection();
+      setAnalysisState({ kind: "idle" });
 
       let validated: ValidatedLocalAudioFile;
       try {
@@ -206,6 +259,7 @@ export function LocalAudioPicker({
         const previewUrl = createObjectURL(file);
         decodedRef.current = decoded;
         previewUrlRef.current = previewUrl;
+        selectedFileRef.current = file;
         controllerRef.current = null;
         setState({
           kind: "ready",
@@ -247,6 +301,135 @@ export function LocalAudioPicker({
     ],
   );
 
+  const startAnalysis = useCallback(async () => {
+    operationRef.current += 1;
+    const operation = operationRef.current;
+    stopCurrentWork();
+
+    const selectedFile = selectedFileRef.current;
+    if (!selectedFile) {
+      setAnalysisState({
+        kind: "error",
+        message: "Choose the local audio file again before analysis.",
+        recovery: "replace",
+      });
+      return;
+    }
+    if (!workerAvailable) {
+      setAnalysisState({
+        kind: "error",
+        message:
+          "This browser cannot start local beat analysis. Choose another browser.",
+        recovery: "replace",
+      });
+      return;
+    }
+
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    const analysisStartedAt = performance.now();
+    setAnalysisState({ kind: "running", stage: "preparing", percent: 5 });
+
+    let decoded = decodedRef.current;
+    decodedRef.current = null;
+    try {
+      if (!decoded) {
+        decoded = await decodeAudio(selectedFile, {
+          signal: controller.signal,
+          onProgress: (progress) => {
+            if (
+              operationRef.current === operation &&
+              !controller.signal.aborted
+            ) {
+              setAnalysisState({
+                kind: "running",
+                stage: "preparing",
+                percent:
+                  progress.stage === "reading"
+                    ? Math.round(5 + progress.percent * 0.1)
+                    : Math.round(15 + progress.percent * 0.05),
+              });
+            }
+          },
+        });
+      }
+      if (operationRef.current !== operation || controller.signal.aborted) {
+        decoded.release();
+        return;
+      }
+
+      const ownedDecoded = decoded;
+      decoded = null;
+      const resultPromise = analyzeBeats(ownedDecoded, {
+        signal: controller.signal,
+        onProgress: (progress: BeatAnalysisProgress) => {
+          if (
+            operationRef.current === operation &&
+            !controller.signal.aborted
+          ) {
+            setAnalysisState({
+              kind: "running",
+              stage: progress.stage,
+              percent: Math.round(20 + progress.percent * 0.8),
+            });
+          }
+        },
+      });
+      const grid = await resultPromise;
+      await waitForVisibleProgress(
+        analysisStartedAt,
+        minimumAnalysisMilliseconds,
+        controller.signal,
+      );
+      if (operationRef.current !== operation || controller.signal.aborted) {
+        return;
+      }
+      controllerRef.current = null;
+      setAnalysisState({ kind: "complete", grid });
+    } catch (error) {
+      decoded?.release();
+      if (operationRef.current !== operation) {
+        return;
+      }
+      controllerRef.current = null;
+      if (error instanceof DOMException && error.name === "AbortError") {
+        setAnalysisState({
+          kind: "idle",
+          notice: "Beat analysis cancelled. The local preview is still ready.",
+        });
+        return;
+      }
+      setAnalysisState({
+        kind: "error",
+        message:
+          error instanceof LocalAudioError ||
+          error instanceof BeatAnalysisBoundaryError
+            ? error.message
+            : "Local beat analysis could not finish. Try again.",
+        recovery:
+          error instanceof BeatAnalysisBoundaryError &&
+          error.code === "analysis_too_large"
+            ? "replace"
+            : "retry",
+      });
+    }
+  }, [
+    analyzeBeats,
+    decodeAudio,
+    minimumAnalysisMilliseconds,
+    stopCurrentWork,
+    workerAvailable,
+  ]);
+
+  const cancelAnalysis = useCallback(() => {
+    operationRef.current += 1;
+    stopCurrentWork();
+    setAnalysisState({
+      kind: "idle",
+      notice: "Beat analysis cancelled. The local preview is still ready.",
+    });
+  }, [stopCurrentWork]);
+
   useEffect(() => {
     const releasePageResources = () => {
       operationRef.current += 1;
@@ -269,6 +452,7 @@ export function LocalAudioPicker({
         kind: "idle",
         notice: "Page restored. Choose the local audio file again.",
       });
+      setAnalysisState({ kind: "idle" });
     };
     window.addEventListener("pagehide", handlePageHide);
     window.addEventListener("pageshow", handlePageShow);
@@ -391,8 +575,8 @@ export function LocalAudioPicker({
             <p className="local-audio__status-label">ready_for_analysis</p>
             <h3>Ready for analysis</h3>
             <p className="local-audio__state-copy">
-              The browser decoded this track successfully. Beat detection
-              arrives in the next stage.
+              The browser decoded this track successfully. Run the transparent
+              baseline analyzer locally in a dedicated worker.
             </p>
             <dl className="local-audio__facts">
               <div>
@@ -423,6 +607,149 @@ export function LocalAudioPicker({
               src={state.previewUrl}
               aria-label="Local audio preview"
             />
+            <div className="beat-analysis" data-testid="beat-analysis">
+              {!workerAvailable ? (
+                <div role="status">
+                  <p className="local-audio__status-label">
+                    Analysis unavailable
+                  </p>
+                  <h4>Local beat analysis needs Web Worker support.</h4>
+                  <p>The audio preview remains available in this tab.</p>
+                </div>
+              ) : null}
+
+              {workerAvailable && analysisState.kind === "idle" ? (
+                <div>
+                  <p className="local-audio__status-label">
+                    Baseline beat detection
+                  </p>
+                  <h4>Find a first-pass beat grid</h4>
+                  <p>
+                    Analysis runs off the main thread. It does not upload or
+                    save audio or beats.
+                  </p>
+                  <p>
+                    Very long or multichannel tracks may be declined before
+                    analysis to protect this tab&apos;s memory.
+                  </p>
+                  {analysisState.notice ? (
+                    <p role="status">{analysisState.notice}</p>
+                  ) : null}
+                  <button
+                    className="button button--primary"
+                    onClick={() => void startAnalysis()}
+                  >
+                    Analyze beats
+                  </button>
+                </div>
+              ) : null}
+
+              {workerAvailable && analysisState.kind === "running" ? (
+                <div aria-live="polite">
+                  <p className="local-audio__status-label">Analyzing locally</p>
+                  <h4>{analysisStageLabels[analysisState.stage]}</h4>
+                  <progress
+                    aria-label="Beat analysis progress"
+                    max={100}
+                    value={analysisState.percent}
+                  />
+                  <p>{analysisState.percent}% · main thread stays available</p>
+                  <button
+                    className="button button--secondary"
+                    onClick={cancelAnalysis}
+                  >
+                    Cancel analysis
+                  </button>
+                </div>
+              ) : null}
+
+              {workerAvailable && analysisState.kind === "error" ? (
+                <div role="alert">
+                  <p className="local-audio__status-label">
+                    Analysis did not finish
+                  </p>
+                  <h4>
+                    {analysisState.recovery === "retry"
+                      ? "Try the baseline again"
+                      : "Choose a smaller track"}
+                  </h4>
+                  <p>{analysisState.message}</p>
+                  {analysisState.recovery === "retry" ? (
+                    <button
+                      className="button button--primary"
+                      onClick={() => void startAnalysis()}
+                    >
+                      Retry analysis
+                    </button>
+                  ) : (
+                    <button
+                      className="button button--primary"
+                      onClick={chooseFile}
+                    >
+                      Choose different music
+                    </button>
+                  )}
+                </div>
+              ) : null}
+
+              {workerAvailable && analysisState.kind === "complete" ? (
+                <div data-testid="beat-grid">
+                  <p className="local-audio__status-label">beat_grid_ready</p>
+                  <h4>Baseline beat grid</h4>
+                  <dl className="beat-grid__summary">
+                    <div>
+                      <dt>Estimated tempo</dt>
+                      <dd>{analysisState.grid.tempoBpm.toFixed(1)} BPM</dd>
+                    </div>
+                    <div>
+                      <dt>Detected beats</dt>
+                      <dd>{analysisState.grid.beats.length}</dd>
+                    </div>
+                    <div>
+                      <dt>Analyzer</dt>
+                      <dd>{analysisState.grid.analyzerVersion}</dd>
+                    </div>
+                  </dl>
+                  <div
+                    className="beat-grid__timeline"
+                    role="img"
+                    aria-label={`${analysisState.grid.beats.length} detected beats across ${formatDuration(analysisState.grid.durationSeconds)}`}
+                  >
+                    {analysisState.grid.beats.map((beat, index) => (
+                      <span
+                        key={`${index}-${beat.timeSeconds}`}
+                        style={{
+                          left: `${Math.min(100, (beat.timeSeconds / analysisState.grid.durationSeconds) * 100)}%`,
+                          opacity: 0.35 + beat.strength * 0.65,
+                        }}
+                        aria-hidden="true"
+                      />
+                    ))}
+                  </div>
+                  <ol
+                    className="beat-grid__times"
+                    aria-label="First beat times"
+                  >
+                    {analysisState.grid.beats.slice(0, 8).map((beat, index) => (
+                      <li key={`${index}-${beat.timeSeconds}`}>
+                        <span>Beat {index + 1}</span>
+                        <strong>{beat.timeSeconds.toFixed(2)} s</strong>
+                      </li>
+                    ))}
+                  </ol>
+                  <p>
+                    Baseline estimate only. Downbeats and uncertainty guidance
+                    arrive in the next stage.
+                  </p>
+                  <button
+                    className="button button--secondary"
+                    onClick={() => void startAnalysis()}
+                  >
+                    Analyze again
+                  </button>
+                </div>
+              ) : null}
+            </div>
             <div className="local-audio__actions">
               <button className="button button--primary" onClick={chooseFile}>
                 Replace music

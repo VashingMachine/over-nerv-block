@@ -1,0 +1,57 @@
+{
+  "storyId": "04",
+  "previewUrl": "http://127.0.0.1:4173/",
+  "buildIdentifier": "eb95113ed383d1c72c08c1ddbd39a25f644e5a1b",
+  "capturedAt": "2026-07-21T01:03:24.939Z",
+  "previewType": "loopback production build",
+  "privacy": "repository-owned synthesized inputs only; no filenames, object URLs, raw samples, or beat-grid data files",
+  "responsiveness": {
+    "intervalMilliseconds": 25,
+    "minimumTicks": 3,
+    "observedTicks": 33
+  },
+  "artifacts": [
+    {
+      "file": "desktop-ready-to-analyze.png",
+      "scenario": "private local preview with explicit off-main-thread Analyze beats action",
+      "viewport": "1280x800",
+      "bytes": 411263,
+      "sha256": "2ce940ae4230a1426ec1069e4d9c4022c7db1e69ab4b99895e5d490e5b96cdc4"
+    },
+    {
+      "file": "desktop-analysis-progress.png",
+      "scenario": "named local worker progress, percentage, responsiveness copy, and cancel action",
+      "viewport": "1280x800 section",
+      "bytes": 108660,
+      "sha256": "f4c1be9f93aad167b52aceb528edf2d133e456576d371f31b85b33b1fc40d1e7"
+    },
+    {
+      "file": "desktop-beat-grid.png",
+      "scenario": "versioned baseline tempo, beat count, timeline, representative times, and retained preview",
+      "viewport": "1280x800",
+      "bytes": 425720,
+      "sha256": "2d006cd23d8aa7c9eaef430142e5839fecbb78acc9582ef664aafe5b16619e38"
+    },
+    {
+      "file": "desktop-analysis-error.png",
+      "scenario": "stable no-onsets classification with filename-free Retry analysis action",
+      "viewport": "1280x800",
+      "bytes": 395126,
+      "sha256": "6bfe2203fab508dfc4be2b989c4d184256c8d73b8b8a68c9704acf283a8fd8b4"
+    },
+    {
+      "file": "baseline-analysis-loop.webm",
+      "scenario": "ready, progress, cancel, retry, completed baseline grid, clear, and recoverable failure",
+      "viewport": "1280x800",
+      "bytes": 562054,
+      "sha256": "82ecbc9e72a5fdd037c6f55a155c3bd210b68fba1baf4511e57c7672c3025304"
+    },
+    {
+      "file": "mobile-beat-grid.png",
+      "scenario": "412-pixel baseline tempo, timeline, beat times, preview, and controls at natural origin",
+      "viewport": "412x915",
+      "bytes": 1128615,
+      "sha256": "4d987299d8d3eed46f9ffd436776b1cc7e5b2e54eb9d8de15084213d37c10a3d"
+    }
+  ]
+}

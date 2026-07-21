@@ -456,6 +456,113 @@ h1 {
   max-width: 100%;
 }
 
+.beat-analysis {
+  min-width: 0;
+  margin-top: 1.25rem;
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  border: 1px solid rgb(231 196 103 / 42%);
+  background: #141311;
+}
+
+.beat-analysis h4 {
+  margin: 0;
+  font-size: clamp(1.35rem, 2.6vw, 2rem);
+  letter-spacing: -0.035em;
+}
+
+.beat-analysis progress {
+  width: 100%;
+  height: 0.55rem;
+  margin-top: 1.25rem;
+  accent-color: #e7c467;
+}
+
+.beat-grid__summary {
+  display: grid;
+  margin: 1.25rem 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid rgb(245 241 233 / 14%);
+  border-left: 1px solid rgb(245 241 233 / 14%);
+}
+
+.beat-grid__summary div {
+  min-width: 0;
+  padding: 0.75rem;
+  border-right: 1px solid rgb(245 241 233 / 14%);
+  border-bottom: 1px solid rgb(245 241 233 / 14%);
+}
+
+.beat-grid__summary dt,
+.beat-grid__summary dd {
+  margin: 0;
+}
+
+.beat-grid__summary dt,
+.beat-grid__times span {
+  color: #9e9a92;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.beat-grid__summary dd {
+  margin-top: 0.35rem;
+  overflow-wrap: anywhere;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.beat-grid__timeline {
+  position: relative;
+  width: 100%;
+  height: 4.25rem;
+  margin: 1.35rem 0;
+  overflow: hidden;
+  border: 1px solid rgb(245 241 233 / 18%);
+  background:
+    linear-gradient(90deg, rgb(236 90 61 / 10%), transparent),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 calc(12.5% - 1px),
+      rgb(245 241 233 / 8%) calc(12.5% - 1px) 12.5%
+    );
+}
+
+.beat-grid__timeline span {
+  position: absolute;
+  bottom: 0.55rem;
+  width: 2px;
+  height: 3.1rem;
+  background: #e7c467;
+  transform: translateX(-1px);
+}
+
+.beat-grid__times {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  list-style: none;
+  background: rgb(245 241 233 / 14%);
+}
+
+.beat-grid__times li {
+  display: flex;
+  min-width: 0;
+  padding: 0.65rem;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  background: #141311;
+}
+
+.beat-grid__times strong {
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
 .local-audio__actions {
   display: flex;
   flex-wrap: wrap;
@@ -906,6 +1013,11 @@ h1 {
   }
 
   .local-audio__facts {
+    grid-template-columns: 1fr;
+  }
+
+  .beat-grid__summary,
+  .beat-grid__times {
     grid-template-columns: 1fr;
   }
 

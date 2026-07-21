@@ -3,6 +3,7 @@ import { z } from "zod";
 export const schemaVersion = 1 as const;
 export const perfectWindowMilliseconds = 50;
 export const goodWindowMilliseconds = 120;
+export const baselineAnalyzerVersion = "baseline-dsp-v1" as const;
 
 export const buildManifestSchema = z.object({
   status: z.literal("ready"),
@@ -63,6 +64,64 @@ export const rhythmChartSchema = z
   });
 
 export type RhythmChart = z.infer<typeof rhythmChartSchema>;
+
+export const beatPointSchema = z.object({
+  timeSeconds: z.number().nonnegative(),
+  strength: z.number().min(0).max(1),
+});
+
+export const tempoCandidateSchema = z.object({
+  bpm: z.number().min(40).max(240),
+  score: z.number().min(0).max(1),
+});
+
+export const beatGridSchema = z
+  .object({
+    schemaVersion: z.literal(schemaVersion),
+    kind: z.literal("beat_grid"),
+    analyzerVersion: z.literal(baselineAnalyzerVersion),
+    durationSeconds: z.number().positive(),
+    analysisSampleRate: z.number().int().positive(),
+    tempoBpm: z.number().min(40).max(240),
+    confidence: z.number().min(0).max(1),
+    tempoCandidates: z.array(tempoCandidateSchema).min(1).max(5),
+    beats: z.array(beatPointSchema).min(2),
+  })
+  .superRefine((grid, context) => {
+    grid.beats.forEach((beat, index) => {
+      if (beat.timeSeconds > grid.durationSeconds) {
+        context.addIssue({
+          code: "custom",
+          message: "Beat falls after the analyzed audio duration",
+          path: ["beats", index, "timeSeconds"],
+        });
+      }
+      if (index > 0 && beat.timeSeconds <= grid.beats[index - 1]!.timeSeconds) {
+        context.addIssue({
+          code: "custom",
+          message: "Beats must be strictly ordered without duplicates",
+          path: ["beats", index, "timeSeconds"],
+        });
+      }
+    });
+
+    grid.tempoCandidates.forEach((candidate, index) => {
+      if (
+        index > 0 &&
+        candidate.score > grid.tempoCandidates[index - 1]!.score
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "Tempo candidates must be ordered by descending score",
+          path: ["tempoCandidates", index, "score"],
+        });
+      }
+    });
+  });
+
+export type BeatPoint = z.infer<typeof beatPointSchema>;
+export type TempoCandidate = z.infer<typeof tempoCandidateSchema>;
+export type BeatGrid = z.infer<typeof beatGridSchema>;
 
 export const judgmentSchema = z.enum(["perfect", "good", "miss"]);
 

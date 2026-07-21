@@ -16,6 +16,8 @@ async function expectHorizontalContainment(page: Page) {
       ".status-card",
       ".local-audio",
       ".local-audio__state",
+      ".beat-analysis",
+      ".beat-grid__timeline",
       ".track-card",
       ".footer",
     ];
@@ -53,6 +55,52 @@ async function selectPayload(
   });
 }
 
+function silentWave(durationSeconds = 2, sampleRate = 22_050) {
+  const sampleCount = durationSeconds * sampleRate;
+  const dataSize = sampleCount * 2;
+  const wave = Buffer.alloc(44 + dataSize);
+  wave.write("RIFF", 0);
+  wave.writeUInt32LE(36 + dataSize, 4);
+  wave.write("WAVE", 8);
+  wave.write("fmt ", 12);
+  wave.writeUInt32LE(16, 16);
+  wave.writeUInt16LE(1, 20);
+  wave.writeUInt16LE(1, 22);
+  wave.writeUInt32LE(sampleRate, 24);
+  wave.writeUInt32LE(sampleRate * 2, 28);
+  wave.writeUInt16LE(2, 32);
+  wave.writeUInt16LE(16, 34);
+  wave.write("data", 36);
+  wave.writeUInt32LE(dataSize, 40);
+  return wave;
+}
+
+async function startHeartbeat(page: Page) {
+  await page.evaluate(() => {
+    const testWindow = window as typeof window & {
+      __beatHeartbeat?: number;
+      __beatHeartbeatTimer?: number;
+    };
+    testWindow.__beatHeartbeat = 0;
+    testWindow.__beatHeartbeatTimer = window.setInterval(() => {
+      testWindow.__beatHeartbeat = (testWindow.__beatHeartbeat ?? 0) + 1;
+    }, 25);
+  });
+}
+
+async function stopHeartbeat(page: Page) {
+  return page.evaluate(() => {
+    const testWindow = window as typeof window & {
+      __beatHeartbeat?: number;
+      __beatHeartbeatTimer?: number;
+    };
+    if (testWindow.__beatHeartbeatTimer !== undefined) {
+      window.clearInterval(testWindow.__beatHeartbeatTimer);
+    }
+    return testWindow.__beatHeartbeat ?? 0;
+  });
+}
+
 test("player privately prepares and clears a valid local song", async ({
   page,
 }) => {
@@ -82,6 +130,37 @@ test("player privately prepares and clears a valid local song", async ({
   await expect(page.getByText("WAV", { exact: true })).toBeVisible();
   await expect(page.getByText(/^1 channel · \d+ Hz$/)).toBeVisible();
   await expect(page.getByLabel("Local audio preview")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Analyze beats" }),
+  ).toBeVisible();
+  await expect(page.getByText(privateFilename)).toHaveCount(0);
+  await expectHorizontalContainment(page);
+
+  await startHeartbeat(page);
+  await page.getByRole("button", { name: "Analyze beats" }).click();
+  await expect(
+    page.getByRole("progressbar", { name: "Beat analysis progress" }),
+  ).toBeVisible();
+  await expect(page.getByTestId("beat-grid")).toBeVisible();
+  expect(await stopHeartbeat(page)).toBeGreaterThanOrEqual(3);
+  const tempo = Number(
+    (await page.getByText(/^[0-9]+\.[0-9] BPM$/).innerText()).split(" ")[0],
+  );
+  expect(tempo).toBeGreaterThanOrEqual(115);
+  expect(tempo).toBeLessThanOrEqual(125);
+  const beatCount = Number(
+    await page
+      .getByText("Detected beats")
+      .locator("..")
+      .locator("dd")
+      .innerText(),
+  );
+  expect(beatCount).toBeGreaterThanOrEqual(12);
+  expect(beatCount).toBeLessThanOrEqual(14);
+  await expect(page.getByText("baseline-dsp-v1")).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: /detected beats across 8.0 seconds/ }),
+  ).toBeVisible();
   await expect(page.getByText(privateFilename)).toHaveCount(0);
   await expectHorizontalContainment(page);
 
@@ -113,6 +192,55 @@ test("player privately prepares and clears a valid local song", async ({
   await expect(
     page.getByRole("heading", { name: "Ready for analysis" }),
   ).toHaveCount(0);
+});
+
+test("player cancels and retries real worker analysis without reselecting", async ({
+  page,
+}) => {
+  await page.goto("./");
+  await selectPayload(page, "private-cancel.wav", "audio/wav", ownedWave);
+  await expect(
+    page.getByRole("heading", { name: "Ready for analysis" }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Analyze beats" }).click();
+  await expect(
+    page.getByRole("progressbar", { name: "Beat analysis progress" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Cancel analysis" }).click();
+  await expect(
+    page.getByText(
+      "Beat analysis cancelled. The local preview is still ready.",
+    ),
+  ).toBeVisible();
+  await expect(page.getByText("private-cancel.wav")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Analyze beats" }).click();
+  await expect(page.getByTestId("beat-grid")).toBeVisible();
+  await expect(page.getByLabel("Local audio preview")).toBeVisible();
+  await expectHorizontalContainment(page);
+});
+
+test("player sees a stable real-worker failure and can retry", async ({
+  page,
+}) => {
+  await page.goto("./");
+  await selectPayload(page, "private-silence.wav", "audio/wav", silentWave());
+  await expect(
+    page.getByRole("heading", { name: "Ready for analysis" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Analyze beats" }).click();
+
+  await expect(page.getByRole("alert")).toContainText(
+    "No clear rhythmic onsets were found in this audio.",
+  );
+  await expect(page.getByText("private-silence.wav")).toHaveCount(0);
+  await page.getByRole("button", { name: "Retry analysis" }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "No clear rhythmic onsets were found in this audio.",
+  );
+  await expect(page.getByLabel("Local audio preview")).toBeVisible();
+  await expectHorizontalContainment(page);
 });
 
 test("player recovers after selecting corrupt supported audio", async ({

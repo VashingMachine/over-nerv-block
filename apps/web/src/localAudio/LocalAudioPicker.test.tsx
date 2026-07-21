@@ -7,6 +7,15 @@ import {
 } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import {
+  baselineAnalyzerVersion,
+  schemaVersion,
+  type BeatGrid,
+} from "@rhythm-game/chart-schema";
+
+import type { AnalyzeDecodedAudioOptions } from "../analysis/workerBeatAnalyzer";
+import { BeatAnalysisBoundaryError } from "../analysis/workerBeatAnalyzer";
+
 import { LocalAudioPicker } from "./LocalAudioPicker";
 import { LocalAudioError } from "./filePolicy";
 import type {
@@ -24,22 +33,48 @@ function selectedFile(
 
 function decodedAudio(durationSeconds = 8) {
   const release = vi.fn();
+  const buffer = {
+    duration: durationSeconds,
+    length: 4,
+    numberOfChannels: 2,
+    sampleRate: 48_000,
+  } as AudioBuffer;
   const decoded: DisposableDecodedAudio = {
     durationSeconds,
     numberOfChannels: 2,
     sampleRate: 48_000,
-    getAudioBuffer: vi.fn(() => null),
+    getAudioBuffer: vi.fn(() => buffer),
     release,
   };
   return { decoded, release };
+}
+
+function validGrid(): BeatGrid {
+  return {
+    schemaVersion,
+    kind: "beat_grid",
+    analyzerVersion: baselineAnalyzerVersion,
+    durationSeconds: 8,
+    analysisSampleRate: 11_025,
+    tempoBpm: 120,
+    confidence: 0.8,
+    tempoCandidates: [{ bpm: 120, score: 1 }],
+    beats: [
+      { timeSeconds: 1, strength: 1 },
+      { timeSeconds: 1.5, strength: 0.8 },
+      { timeSeconds: 2, strength: 0.9 },
+    ],
+  };
 }
 
 function pickerProps() {
   return {
     capabilityAvailable: true,
     createObjectURL: vi.fn(() => "blob:private-preview"),
+    minimumAnalysisMilliseconds: 0,
     minimumProgressMilliseconds: 0,
     revokeObjectURL: vi.fn(),
+    workerAvailable: true,
   };
 }
 
@@ -239,6 +274,270 @@ describe("private local-audio picker", () => {
     expect(
       await screen.findByRole("heading", { name: "Ready for analysis" }),
     ).toBeInTheDocument();
+  });
+
+  it("analyzes decoded samples and previews a versioned beat grid", async () => {
+    const props = pickerProps();
+    const handle = decodedAudio();
+    const decodeAudio = vi.fn().mockResolvedValue(handle.decoded);
+    const analyzeBeats = vi.fn(
+      async (
+        decoded: DisposableDecodedAudio,
+        options: AnalyzeDecodedAudioOptions,
+      ) => {
+        decoded.release();
+        options.onProgress({ stage: "tempo", percent: 72 });
+        options.onProgress({ stage: "beat_tracking", percent: 86 });
+        return validGrid();
+      },
+    );
+    render(
+      <LocalAudioPicker
+        {...props}
+        decodeAudio={decodeAudio}
+        analyzeBeats={analyzeBeats}
+      />,
+    );
+
+    select(selectedFile());
+    await screen.findByText("Ready for analysis");
+    expect(screen.getByText(/runs off the main thread/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Analyze beats" }));
+
+    expect(await screen.findByText("Baseline beat grid")).toBeInTheDocument();
+    expect(screen.getByText("120.0 BPM")).toBeInTheDocument();
+    expect(screen.getByText("3", { exact: true })).toBeInTheDocument();
+    expect(screen.getByText("baseline-dsp-v1")).toBeInTheDocument();
+    expect(screen.getByText("1.00 s")).toBeInTheDocument();
+    expect(screen.getByText("1.50 s")).toBeInTheDocument();
+    expect(screen.getByLabelText("Local audio preview")).toHaveAttribute(
+      "src",
+      "blob:private-preview",
+    );
+    expect(handle.release).toHaveBeenCalledOnce();
+  });
+
+  it("cancels analysis and ignores a late worker result", async () => {
+    const props = pickerProps();
+    const handle = decodedAudio();
+    const decodeAudio = vi.fn().mockResolvedValue(handle.decoded);
+    let resolveAnalysis: ((grid: BeatGrid) => void) | undefined;
+    let analysisOptions: AnalyzeDecodedAudioOptions | undefined;
+    const analyzeBeats = vi.fn(
+      (
+        decoded: DisposableDecodedAudio,
+        options: AnalyzeDecodedAudioOptions,
+      ) => {
+        decoded.release();
+        analysisOptions = options;
+        return new Promise<BeatGrid>((resolve) => {
+          resolveAnalysis = resolve;
+        });
+      },
+    );
+    render(
+      <LocalAudioPicker
+        {...props}
+        decodeAudio={decodeAudio}
+        analyzeBeats={analyzeBeats}
+      />,
+    );
+
+    select(selectedFile());
+    await screen.findByText("Ready for analysis");
+    fireEvent.click(screen.getByRole("button", { name: "Analyze beats" }));
+    act(() =>
+      analysisOptions?.onProgress({ stage: "onset_envelope", percent: 60 }),
+    );
+    expect(screen.getByText("Finding rhythmic onsets")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel analysis" }));
+
+    expect(analysisOptions?.signal.aborted).toBe(true);
+    expect(handle.release).toHaveBeenCalledOnce();
+    expect(
+      screen.getByText(
+        "Beat analysis cancelled. The local preview is still ready.",
+      ),
+    ).toBeInTheDocument();
+    await act(async () => resolveAnalysis?.(validGrid()));
+    expect(screen.queryByText("Baseline beat grid")).not.toBeInTheDocument();
+  });
+
+  it("re-decodes the active local selection when analysis is retried", async () => {
+    const props = pickerProps();
+    const first = decodedAudio();
+    const retry = decodedAudio();
+    const decodeAudio = vi
+      .fn()
+      .mockResolvedValueOnce(first.decoded)
+      .mockResolvedValueOnce(retry.decoded);
+    const analyzeBeats = vi
+      .fn()
+      .mockImplementationOnce(async (decoded: DisposableDecodedAudio) => {
+        decoded.release();
+        throw new BeatAnalysisBoundaryError("worker_failed");
+      })
+      .mockImplementationOnce(async (decoded: DisposableDecodedAudio) => {
+        decoded.release();
+        return validGrid();
+      });
+    render(
+      <LocalAudioPicker
+        {...props}
+        decodeAudio={decodeAudio}
+        analyzeBeats={analyzeBeats}
+      />,
+    );
+
+    select(selectedFile("private-retry.wav"));
+    await screen.findByText("Ready for analysis");
+    fireEvent.click(screen.getByRole("button", { name: "Analyze beats" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Local beat analysis stopped unexpectedly. Try again.",
+    );
+    expect(screen.queryByText("private-retry.wav")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Retry analysis" }));
+
+    expect(await screen.findByText("Baseline beat grid")).toBeInTheDocument();
+    expect(decodeAudio).toHaveBeenCalledTimes(2);
+    expect(analyzeBeats).toHaveBeenCalledTimes(2);
+    expect(first.release).toHaveBeenCalledOnce();
+    expect(retry.release).toHaveBeenCalledOnce();
+    expect(props.createObjectURL).toHaveBeenCalledOnce();
+  });
+
+  it("recovers safely when decoded audio exceeds the analysis budget", async () => {
+    const props = pickerProps();
+    const handle = decodedAudio(300);
+    const decodeAudio = vi.fn().mockResolvedValue(handle.decoded);
+    const analyzeBeats = vi.fn(async (decoded: DisposableDecodedAudio) => {
+      decoded.release();
+      throw new BeatAnalysisBoundaryError("analysis_too_large");
+    });
+    render(
+      <LocalAudioPicker
+        {...props}
+        decodeAudio={decodeAudio}
+        analyzeBeats={analyzeBeats}
+      />,
+    );
+
+    select(selectedFile("private-large.wav"));
+    await screen.findByText("Ready for analysis");
+    fireEvent.click(screen.getByRole("button", { name: "Analyze beats" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "This track is too large for safe local beat analysis. Choose a shorter or lower-channel file.",
+    );
+    expect(
+      screen.getByRole("button", { name: "Choose different music" }),
+    ).toBeEnabled();
+    expect(screen.queryByText("private-large.wav")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Local audio preview")).toBeInTheDocument();
+    expect(handle.release).toHaveBeenCalledOnce();
+  });
+
+  it("aborts active analysis when a replacement is selected", async () => {
+    const props = pickerProps();
+    props.createObjectURL
+      .mockReturnValueOnce("blob:first")
+      .mockReturnValueOnce("blob:second");
+    const first = decodedAudio(8);
+    const second = decodedAudio(6);
+    const decodeAudio = vi
+      .fn()
+      .mockResolvedValueOnce(first.decoded)
+      .mockResolvedValueOnce(second.decoded);
+    let resolveAnalysis: ((grid: BeatGrid) => void) | undefined;
+    let analysisOptions: AnalyzeDecodedAudioOptions | undefined;
+    const analyzeBeats = vi.fn(
+      (
+        decoded: DisposableDecodedAudio,
+        options: AnalyzeDecodedAudioOptions,
+      ) => {
+        decoded.release();
+        analysisOptions = options;
+        return new Promise<BeatGrid>((resolve) => {
+          resolveAnalysis = resolve;
+        });
+      },
+    );
+    render(
+      <LocalAudioPicker
+        {...props}
+        decodeAudio={decodeAudio}
+        analyzeBeats={analyzeBeats}
+      />,
+    );
+
+    select(selectedFile("first-private.wav"));
+    await screen.findByText("8.0 seconds");
+    fireEvent.click(screen.getByRole("button", { name: "Analyze beats" }));
+    fireEvent.click(screen.getByRole("button", { name: "Replace music" }));
+    select(selectedFile("second-private.wav"));
+
+    expect(await screen.findByText("6.0 seconds")).toBeInTheDocument();
+    expect(analysisOptions?.signal.aborted).toBe(true);
+    expect(props.revokeObjectURL).toHaveBeenCalledWith("blob:first");
+    await act(async () => resolveAnalysis?.(validGrid()));
+    expect(screen.queryByText("Baseline beat grid")).not.toBeInTheDocument();
+  });
+
+  it("aborts active analysis on unmount", async () => {
+    const props = pickerProps();
+    const handle = decodedAudio();
+    const decodeAudio = vi.fn().mockResolvedValue(handle.decoded);
+    let analysisOptions: AnalyzeDecodedAudioOptions | undefined;
+    const analyzeBeats = vi.fn(
+      (
+        decoded: DisposableDecodedAudio,
+        options: AnalyzeDecodedAudioOptions,
+      ) => {
+        decoded.release();
+        analysisOptions = options;
+        return new Promise<BeatGrid>(() => undefined);
+      },
+    );
+    const { unmount } = render(
+      <LocalAudioPicker
+        {...props}
+        decodeAudio={decodeAudio}
+        analyzeBeats={analyzeBeats}
+      />,
+    );
+
+    select(selectedFile());
+    await screen.findByText("Ready for analysis");
+    fireEvent.click(screen.getByRole("button", { name: "Analyze beats" }));
+    unmount();
+
+    expect(analysisOptions?.signal.aborted).toBe(true);
+    expect(handle.release).toHaveBeenCalledOnce();
+    expect(props.revokeObjectURL).toHaveBeenCalledOnce();
+  });
+
+  it("keeps preview available but omits analysis control without worker support", async () => {
+    const props = pickerProps();
+    const handle = decodedAudio();
+    const decodeAudio = vi.fn().mockResolvedValue(handle.decoded);
+    render(
+      <LocalAudioPicker
+        {...props}
+        workerAvailable={false}
+        decodeAudio={decodeAudio}
+      />,
+    );
+
+    select(selectedFile());
+    await screen.findByText("Ready for analysis");
+
+    expect(
+      screen.getByText("Local beat analysis needs Web Worker support."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Analyze beats" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Local audio preview")).toBeInTheDocument();
   });
 
   it("releases a ready selection once when the page closes", async () => {

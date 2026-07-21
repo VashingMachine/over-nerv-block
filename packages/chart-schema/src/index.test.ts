@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  baselineAnalyzerVersion,
+  beatGridSchema,
   buildManifestSchema,
   gameResultSchema,
   goodWindowMilliseconds,
@@ -213,6 +215,88 @@ describe("shared contracts", () => {
           maxCombo: 0,
           accuracyPercent: 0,
         },
+      }),
+    ).toThrow();
+  });
+
+  it("accepts a versioned baseline beat grid", () => {
+    expect(
+      beatGridSchema.parse({
+        schemaVersion,
+        kind: "beat_grid",
+        analyzerVersion: baselineAnalyzerVersion,
+        durationSeconds: 8,
+        analysisSampleRate: 11_025,
+        tempoBpm: 120,
+        confidence: 0.82,
+        tempoCandidates: [
+          { bpm: 120, score: 1 },
+          { bpm: 60, score: 0.4 },
+        ],
+        beats: [
+          { timeSeconds: 1, strength: 1 },
+          { timeSeconds: 1.5, strength: 0.8 },
+        ],
+      }),
+    ).toMatchObject({
+      analyzerVersion: baselineAnalyzerVersion,
+      tempoBpm: 120,
+    });
+  });
+
+  it.each([
+    [
+      "out-of-range beat",
+      {
+        beats: [
+          { timeSeconds: 1, strength: 1 },
+          { timeSeconds: 8.1, strength: 0.8 },
+        ],
+      },
+    ],
+    [
+      "duplicate beat",
+      {
+        beats: [
+          { timeSeconds: 1, strength: 1 },
+          { timeSeconds: 1, strength: 0.8 },
+        ],
+      },
+    ],
+    [
+      "unsorted tempo candidates",
+      {
+        tempoCandidates: [
+          { bpm: 120, score: 0.4 },
+          { bpm: 60, score: 0.8 },
+        ],
+      },
+    ],
+    [
+      "non-finite beat",
+      {
+        beats: [
+          { timeSeconds: 1, strength: 1 },
+          { timeSeconds: Number.NaN, strength: 0.8 },
+        ],
+      },
+    ],
+  ])("rejects a beat grid with %s", (_case, mutation) => {
+    expect(() =>
+      beatGridSchema.parse({
+        schemaVersion,
+        kind: "beat_grid",
+        analyzerVersion: baselineAnalyzerVersion,
+        durationSeconds: 8,
+        analysisSampleRate: 11_025,
+        tempoBpm: 120,
+        confidence: 0.82,
+        tempoCandidates: [{ bpm: 120, score: 1 }],
+        beats: [
+          { timeSeconds: 1, strength: 1 },
+          { timeSeconds: 1.5, strength: 0.8 },
+        ],
+        ...mutation,
       }),
     ).toThrow();
   });

@@ -22,15 +22,16 @@ export function App() {
       <main>
         <section className="hero">
           <div className="eyebrow">
-            <span>03</span>
-            <span>Private local audio</span>
+            <span>04</span>
+            <span>Baseline beat grid</span>
           </div>
           <div className="hero-copy">
             <p className="kicker">Your music. Your timing.</p>
             <h1>Make every beat playable.</h1>
             <p className="lede">
-              Prepare music privately in this tab, or calibrate your timing on
-              the original eight-second demo. Your audio is never uploaded.
+              Prepare music privately, detect a first-pass beat grid off the
+              main thread, or calibrate on the original demo. Nothing is
+              uploaded.
             </p>
           </div>
           <SystemStatus state={systemState} onRetry={retry} />
@@ -40,7 +41,7 @@ export function App() {
       </main>
 
       <footer className="footer">
-        <p>Stage 03 / Private local audio</p>
+        <p>Stage 04 / Baseline beat grid</p>
         <p>Runs locally in your browser.</p>
       </footer>
     </div>
