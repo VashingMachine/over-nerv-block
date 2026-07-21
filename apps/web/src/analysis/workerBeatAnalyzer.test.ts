@@ -2,8 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   baselineAnalyzerVersion,
+  qualityAnalyzerVersion,
   schemaVersion,
-  type BeatGrid,
+  type QualityRhythmAnalysis,
 } from "@rhythm-game/chart-schema";
 
 import type { DisposableDecodedAudio } from "../localAudio/localAudioDecoder";
@@ -15,19 +16,38 @@ import {
 } from "./workerBeatAnalyzer";
 import type { BeatAnalysisBoundaryError } from "./workerBeatAnalyzer";
 
-function validGrid(): BeatGrid {
+function validGrid(): QualityRhythmAnalysis {
   return {
     schemaVersion,
-    kind: "beat_grid",
-    analyzerVersion: baselineAnalyzerVersion,
+    kind: "quality_rhythm_analysis",
+    analyzerVersion: qualityAnalyzerVersion,
     durationSeconds: 8,
     analysisSampleRate: 11_025,
     tempoBpm: 120,
-    confidence: 0.8,
-    tempoCandidates: [{ bpm: 120, score: 1 }],
+    meter: 4,
+    confidence: {
+      tempo: 0.9,
+      beat: 0.8,
+      downbeat: 0.82,
+      agreement: 1,
+      overall: 0.86,
+    },
+    tempoCandidates: [{ bpm: 120, score: 1, relation: "selected" }],
+    warnings: [],
+    baselineComparison: {
+      analyzerVersion: baselineAnalyzerVersion,
+      tempoDeltaBpm: 0,
+      beatAgreement: 1,
+      fallbackUsed: false,
+    },
     beats: [
-      { timeSeconds: 1, strength: 1 },
-      { timeSeconds: 1.5, strength: 0.8 },
+      { timeSeconds: 1, strength: 1, isDownbeat: true, positionInBar: 1 },
+      {
+        timeSeconds: 1.5,
+        strength: 0.8,
+        isDownbeat: false,
+        positionInBar: 2,
+      },
     ],
   };
 }
@@ -134,6 +154,10 @@ describe("beat-analysis worker boundary", () => {
 
     expect(source.release).toHaveBeenCalledOnce();
     expect(worker.messages).toHaveLength(1);
+    expect(worker.messages[0]!.message).toMatchObject({
+      protocolVersion: 2,
+      type: "analyze",
+    });
     expect(worker.request().input.channels).toHaveLength(2);
     expect(worker.messages[0]!.transfer).toHaveLength(2);
     expect(
@@ -262,8 +286,8 @@ describe("beat-analysis worker boundary", () => {
   it.each([
     ["null payload", null],
     [
-      "wrong protocol version",
-      { protocolVersion: 999, type: "complete", requestId: "any" },
+      "previous protocol version",
+      { protocolVersion: 1, type: "complete", requestId: "any" },
     ],
     [
       "missing request ID",

@@ -1,4 +1,7 @@
-import { beatGridSchema, type BeatGrid } from "@rhythm-game/chart-schema";
+import {
+  qualityRhythmAnalysisSchema,
+  type QualityRhythmAnalysis,
+} from "@rhythm-game/chart-schema";
 
 import type { DisposableDecodedAudio } from "../localAudio/localAudioDecoder";
 import type { BeatAnalysisProgress } from "./beatAnalyzer";
@@ -59,7 +62,7 @@ export interface AnalyzeDecodedAudioOptions {
 const createModuleWorker: BeatAnalysisWorkerFactory = () =>
   new Worker(new URL("./beatAnalysis.worker.ts", import.meta.url), {
     type: "module",
-    name: "baseline-beat-analysis",
+    name: "quality-rhythm-analysis",
   });
 
 let requestSequence = 0;
@@ -106,7 +109,7 @@ export function analyzeDecodedAudioInWorker(
     onProgress,
     createWorker = createModuleWorker,
   }: AnalyzeDecodedAudioOptions,
-): Promise<BeatGrid> {
+): Promise<QualityRhythmAnalysis> {
   const audioBuffer = decoded.getAudioBuffer();
   if (!audioBuffer) {
     decoded.release();
@@ -152,7 +155,7 @@ export function analyzeDecodedAudioInWorker(
     },
   };
 
-  return new Promise<BeatGrid>((resolve, reject) => {
+  return new Promise<QualityRhythmAnalysis>((resolve, reject) => {
     let finished = false;
     const finish = (outcome: () => void) => {
       if (finished) {
@@ -205,7 +208,7 @@ export function analyzeDecodedAudioInWorker(
         return;
       }
       if (identity.type === "complete") {
-        const parsed = beatGridSchema.safeParse(response.result);
+        const parsed = qualityRhythmAnalysisSchema.safeParse(response.result);
         if (!parsed.success) {
           finish(() => reject(new BeatAnalysisBoundaryError("invalid_result")));
           return;

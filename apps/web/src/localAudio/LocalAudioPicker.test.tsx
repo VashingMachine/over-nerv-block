@@ -9,8 +9,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   baselineAnalyzerVersion,
+  qualityAnalyzerVersion,
   schemaVersion,
-  type BeatGrid,
+  type QualityRhythmAnalysis,
 } from "@rhythm-game/chart-schema";
 
 import type { AnalyzeDecodedAudioOptions } from "../analysis/workerBeatAnalyzer";
@@ -49,21 +50,76 @@ function decodedAudio(durationSeconds = 8) {
   return { decoded, release };
 }
 
-function validGrid(): BeatGrid {
+function validGrid(): QualityRhythmAnalysis {
   return {
     schemaVersion,
-    kind: "beat_grid",
-    analyzerVersion: baselineAnalyzerVersion,
+    kind: "quality_rhythm_analysis",
+    analyzerVersion: qualityAnalyzerVersion,
     durationSeconds: 8,
     analysisSampleRate: 11_025,
     tempoBpm: 120,
-    confidence: 0.8,
-    tempoCandidates: [{ bpm: 120, score: 1 }],
+    meter: 4,
+    confidence: {
+      tempo: 0.9,
+      beat: 0.8,
+      downbeat: 0.82,
+      agreement: 1,
+      overall: 0.86,
+    },
+    tempoCandidates: [{ bpm: 120, score: 1, relation: "selected" }],
+    warnings: [],
+    baselineComparison: {
+      analyzerVersion: baselineAnalyzerVersion,
+      tempoDeltaBpm: 0,
+      beatAgreement: 1,
+      fallbackUsed: false,
+    },
     beats: [
-      { timeSeconds: 1, strength: 1 },
-      { timeSeconds: 1.5, strength: 0.8 },
-      { timeSeconds: 2, strength: 0.9 },
+      { timeSeconds: 1, strength: 1, isDownbeat: true, positionInBar: 1 },
+      {
+        timeSeconds: 1.5,
+        strength: 0.8,
+        isDownbeat: false,
+        positionInBar: 2,
+      },
+      {
+        timeSeconds: 2,
+        strength: 0.9,
+        isDownbeat: false,
+        positionInBar: 3,
+      },
     ],
+  };
+}
+
+function uncertainGrid(): QualityRhythmAnalysis {
+  const grid = validGrid();
+  return {
+    ...grid,
+    meter: null,
+    confidence: { ...grid.confidence, downbeat: 0.2, overall: 0.58 },
+    warnings: ["low_confidence", "meter_uncertain"],
+    baselineComparison: {
+      ...grid.baselineComparison,
+      fallbackUsed: true,
+    },
+    beats: grid.beats.map((beat) => ({
+      ...beat,
+      isDownbeat: false,
+      positionInBar: null,
+    })),
+  };
+}
+
+function ambiguousGrid(): QualityRhythmAnalysis {
+  const grid = validGrid();
+  return {
+    ...grid,
+    tempoCandidates: [
+      ...grid.tempoCandidates,
+      { bpm: 60, score: 0.74, relation: "half" },
+    ],
+    warnings: ["half_double_ambiguous"],
   };
 }
 
@@ -304,10 +360,14 @@ describe("private local-audio picker", () => {
     expect(screen.getByText(/runs off the main thread/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Analyze beats" }));
 
-    expect(await screen.findByText("Baseline beat grid")).toBeInTheDocument();
-    expect(screen.getByText("120.0 BPM")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Quality beat and downbeat grid"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("120.0 BPM")).toHaveLength(2);
     expect(screen.getByText("3", { exact: true })).toBeInTheDocument();
-    expect(screen.getByText("baseline-dsp-v1")).toBeInTheDocument();
+    expect(screen.getByText("quality-dsp-v1")).toBeInTheDocument();
+    expect(screen.getByText("4/4")).toBeInTheDocument();
+    expect(screen.getByText("Downbeat 1 · bar position 1")).toBeInTheDocument();
     expect(screen.getByText("1.00 s")).toBeInTheDocument();
     expect(screen.getByText("1.50 s")).toBeInTheDocument();
     expect(screen.getByLabelText("Local audio preview")).toHaveAttribute(
@@ -321,7 +381,7 @@ describe("private local-audio picker", () => {
     const props = pickerProps();
     const handle = decodedAudio();
     const decodeAudio = vi.fn().mockResolvedValue(handle.decoded);
-    let resolveAnalysis: ((grid: BeatGrid) => void) | undefined;
+    let resolveAnalysis: ((grid: QualityRhythmAnalysis) => void) | undefined;
     let analysisOptions: AnalyzeDecodedAudioOptions | undefined;
     const analyzeBeats = vi.fn(
       (
@@ -330,7 +390,7 @@ describe("private local-audio picker", () => {
       ) => {
         decoded.release();
         analysisOptions = options;
-        return new Promise<BeatGrid>((resolve) => {
+        return new Promise<QualityRhythmAnalysis>((resolve) => {
           resolveAnalysis = resolve;
         });
       },
@@ -360,7 +420,47 @@ describe("private local-audio picker", () => {
       ),
     ).toBeInTheDocument();
     await act(async () => resolveAnalysis?.(validGrid()));
-    expect(screen.queryByText("Baseline beat grid")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Quality beat and downbeat grid"),
+    ).not.toBeInTheDocument();
+  });
+
+  it.each([
+    [
+      "uncertain meter",
+      uncertainGrid,
+      "Meter and downbeats are uncertain. The detected beat timing may still be usable.",
+      "Baseline beat timing retained; meter and downbeats were not asserted.",
+    ],
+    [
+      "half-tempo ambiguity",
+      ambiguousGrid,
+      "The musical pulse may be half or double this tempo. Compare the alternatives.",
+      "60.0 BPM",
+    ],
+  ])("renders honest %s guidance", async (_case, result, warning, detail) => {
+    const props = pickerProps();
+    const handle = decodedAudio();
+    const decodeAudio = vi.fn().mockResolvedValue(handle.decoded);
+    const analyzeBeats = vi.fn(async (decoded: DisposableDecodedAudio) => {
+      decoded.release();
+      return result();
+    });
+    render(
+      <LocalAudioPicker
+        {...props}
+        decodeAudio={decodeAudio}
+        analyzeBeats={analyzeBeats}
+      />,
+    );
+
+    select(selectedFile());
+    await screen.findByText("Ready for analysis");
+    fireEvent.click(screen.getByRole("button", { name: "Analyze beats" }));
+
+    expect(await screen.findByText(warning)).toBeInTheDocument();
+    expect(screen.getByText(detail)).toBeInTheDocument();
+    expect(handle.release).toHaveBeenCalledOnce();
   });
 
   it("re-decodes the active local selection when analysis is retried", async () => {
@@ -398,7 +498,9 @@ describe("private local-audio picker", () => {
     expect(screen.queryByText("private-retry.wav")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Retry analysis" }));
 
-    expect(await screen.findByText("Baseline beat grid")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Quality beat and downbeat grid"),
+    ).toBeInTheDocument();
     expect(decodeAudio).toHaveBeenCalledTimes(2);
     expect(analyzeBeats).toHaveBeenCalledTimes(2);
     expect(first.release).toHaveBeenCalledOnce();
@@ -448,7 +550,7 @@ describe("private local-audio picker", () => {
       .fn()
       .mockResolvedValueOnce(first.decoded)
       .mockResolvedValueOnce(second.decoded);
-    let resolveAnalysis: ((grid: BeatGrid) => void) | undefined;
+    let resolveAnalysis: ((grid: QualityRhythmAnalysis) => void) | undefined;
     let analysisOptions: AnalyzeDecodedAudioOptions | undefined;
     const analyzeBeats = vi.fn(
       (
@@ -457,7 +559,7 @@ describe("private local-audio picker", () => {
       ) => {
         decoded.release();
         analysisOptions = options;
-        return new Promise<BeatGrid>((resolve) => {
+        return new Promise<QualityRhythmAnalysis>((resolve) => {
           resolveAnalysis = resolve;
         });
       },
@@ -480,7 +582,9 @@ describe("private local-audio picker", () => {
     expect(analysisOptions?.signal.aborted).toBe(true);
     expect(props.revokeObjectURL).toHaveBeenCalledWith("blob:first");
     await act(async () => resolveAnalysis?.(validGrid()));
-    expect(screen.queryByText("Baseline beat grid")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Quality beat and downbeat grid"),
+    ).not.toBeInTheDocument();
   });
 
   it("aborts active analysis on unmount", async () => {
@@ -495,7 +599,7 @@ describe("private local-audio picker", () => {
       ) => {
         decoded.release();
         analysisOptions = options;
-        return new Promise<BeatGrid>(() => undefined);
+        return new Promise<QualityRhythmAnalysis>(() => undefined);
       },
     );
     const { unmount } = render(

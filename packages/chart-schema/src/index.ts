@@ -4,6 +4,51 @@ export const schemaVersion = 1 as const;
 export const perfectWindowMilliseconds = 50;
 export const goodWindowMilliseconds = 120;
 export const baselineAnalyzerVersion = "baseline-dsp-v1" as const;
+export const qualityAnalyzerVersion = "quality-dsp-v1" as const;
+export const qualityAnalysisContractVersion = 1 as const;
+export const qualityAnalysisThresholds = {
+  lowOverallConfidence: 0.6,
+  maximumUncertainDownbeatConfidence: 0.55,
+  halfDoubleAmbiguityScore: 0.72,
+  baselineTempoDisagreementBpm: 3,
+  minimumBaselineBeatAgreement: 0.85,
+  tempoRelationToleranceBpm: 3,
+  meterMinimumRelativeRange: 0.1,
+  meterMinimumHypothesisScore: 0.42,
+  meterMinimumWinningMargin: 0.1,
+  meterMinimumCompleteBars: 3,
+  meterMinimumStrongBarRatio: 0.75,
+  meterMinimumBarContrast: 0.12,
+  meterMinimumRawContrastRatio: 0.12,
+} as const;
+export const rhythmAnalysisWarningOrder = [
+  "low_confidence",
+  "meter_uncertain",
+  "half_double_ambiguous",
+  "baseline_disagreement",
+] as const;
+
+export function qualityTempoRelation(
+  candidateBpm: number,
+  selectedBpm: number,
+): "selected" | "half" | "double" | "alternate" {
+  if (Math.abs(candidateBpm - selectedBpm) <= 0.01) {
+    return "selected";
+  }
+  if (
+    Math.abs(candidateBpm * 2 - selectedBpm) <=
+    qualityAnalysisThresholds.tempoRelationToleranceBpm
+  ) {
+    return "half";
+  }
+  if (
+    Math.abs(candidateBpm / 2 - selectedBpm) <=
+    qualityAnalysisThresholds.tempoRelationToleranceBpm
+  ) {
+    return "double";
+  }
+  return "alternate";
+}
 
 export const buildManifestSchema = z.object({
   status: z.literal("ready"),
@@ -122,6 +167,234 @@ export const beatGridSchema = z
 export type BeatPoint = z.infer<typeof beatPointSchema>;
 export type TempoCandidate = z.infer<typeof tempoCandidateSchema>;
 export type BeatGrid = z.infer<typeof beatGridSchema>;
+
+export const rhythmAnalysisWarningSchema = z.enum(rhythmAnalysisWarningOrder);
+
+export const confidenceComponentsSchema = z.object({
+  tempo: z.number().min(0).max(1),
+  beat: z.number().min(0).max(1),
+  downbeat: z.number().min(0).max(1),
+  agreement: z.number().min(0).max(1),
+  overall: z.number().min(0).max(1),
+});
+
+export const qualityBeatPointSchema = beatPointSchema.extend({
+  isDownbeat: z.boolean(),
+  positionInBar: z.number().int().min(1).max(4).nullable(),
+});
+
+export const qualityTempoCandidateSchema = tempoCandidateSchema.extend({
+  relation: z.enum(["selected", "half", "double", "alternate"]),
+});
+
+export const baselineComparisonSchema = z.object({
+  analyzerVersion: z.literal(baselineAnalyzerVersion),
+  tempoDeltaBpm: z.number().nonnegative(),
+  beatAgreement: z.number().min(0).max(1),
+  fallbackUsed: z.boolean(),
+});
+
+export const qualityRhythmAnalysisSchema = z
+  .object({
+    schemaVersion: z.literal(schemaVersion),
+    kind: z.literal("quality_rhythm_analysis"),
+    analyzerVersion: z.literal(qualityAnalyzerVersion),
+    durationSeconds: z.number().positive(),
+    analysisSampleRate: z.number().int().positive(),
+    tempoBpm: z.number().min(40).max(240),
+    meter: z.union([z.literal(3), z.literal(4)]).nullable(),
+    confidence: confidenceComponentsSchema,
+    tempoCandidates: z.array(qualityTempoCandidateSchema).min(1).max(5),
+    warnings: z.array(rhythmAnalysisWarningSchema).max(4),
+    baselineComparison: baselineComparisonSchema,
+    beats: z.array(qualityBeatPointSchema).min(2),
+  })
+  .superRefine((analysis, context) => {
+    analysis.beats.forEach((beat, index) => {
+      if (beat.timeSeconds > analysis.durationSeconds) {
+        context.addIssue({
+          code: "custom",
+          message: "Beat falls after the analyzed audio duration",
+          path: ["beats", index, "timeSeconds"],
+        });
+      }
+      if (
+        index > 0 &&
+        beat.timeSeconds <= analysis.beats[index - 1]!.timeSeconds
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "Beats must be strictly ordered without duplicates",
+          path: ["beats", index, "timeSeconds"],
+        });
+      }
+    });
+
+    analysis.tempoCandidates.forEach((candidate, index) => {
+      if (
+        index > 0 &&
+        candidate.score > analysis.tempoCandidates[index - 1]!.score
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "Tempo candidates must be ordered by descending score",
+          path: ["tempoCandidates", index, "score"],
+        });
+      }
+      if (
+        candidate.relation !==
+        qualityTempoRelation(candidate.bpm, analysis.tempoBpm)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "Tempo candidate relation must match the selected tempo",
+          path: ["tempoCandidates", index, "relation"],
+        });
+      }
+    });
+    const selectedCandidates = analysis.tempoCandidates.filter(
+      (candidate) => candidate.relation === "selected",
+    );
+    if (
+      selectedCandidates.length !== 1 ||
+      Math.abs((selectedCandidates[0]?.bpm ?? 0) - analysis.tempoBpm) > 0.01
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Exactly one selected tempo candidate must match the tempo",
+        path: ["tempoCandidates"],
+      });
+    }
+
+    const uniqueWarnings = new Set(analysis.warnings);
+    if (uniqueWarnings.size !== analysis.warnings.length) {
+      context.addIssue({
+        code: "custom",
+        message: "Analysis warnings must be unique",
+        path: ["warnings"],
+      });
+    }
+
+    const expectedWarnings = rhythmAnalysisWarningOrder.filter((warning) => {
+      if (warning === "low_confidence") {
+        return (
+          analysis.confidence.overall <
+          qualityAnalysisThresholds.lowOverallConfidence
+        );
+      }
+      if (warning === "meter_uncertain") {
+        return analysis.meter === null;
+      }
+      if (warning === "half_double_ambiguous") {
+        return analysis.tempoCandidates.some(
+          (candidate) =>
+            (candidate.relation === "half" ||
+              candidate.relation === "double") &&
+            candidate.score >=
+              qualityAnalysisThresholds.halfDoubleAmbiguityScore,
+        );
+      }
+      return (
+        analysis.baselineComparison.tempoDeltaBpm >
+          qualityAnalysisThresholds.baselineTempoDisagreementBpm ||
+        analysis.baselineComparison.beatAgreement <
+          qualityAnalysisThresholds.minimumBaselineBeatAgreement
+      );
+    });
+    if (
+      analysis.warnings.length !== expectedWarnings.length ||
+      analysis.warnings.some(
+        (warning, index) => warning !== expectedWarnings[index],
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "Analysis warnings must match their thresholds in canonical order",
+        path: ["warnings"],
+      });
+    }
+
+    if (analysis.meter === null) {
+      if (
+        analysis.beats.some(
+          (beat) => beat.isDownbeat || beat.positionInBar !== null,
+        )
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "Uncertain meter cannot contain downbeats or bar positions",
+          path: ["beats"],
+        });
+      }
+      if (
+        analysis.confidence.downbeat >=
+        qualityAnalysisThresholds.maximumUncertainDownbeatConfidence
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "Uncertain meter requires low downbeat confidence",
+          path: ["confidence", "downbeat"],
+        });
+      }
+    } else {
+      analysis.beats.forEach((beat, index) => {
+        if (
+          beat.positionInBar === null ||
+          beat.positionInBar > analysis.meter!
+        ) {
+          context.addIssue({
+            code: "custom",
+            message: "Metered beats require a valid bar position",
+            path: ["beats", index, "positionInBar"],
+          });
+          return;
+        }
+        if (beat.isDownbeat !== (beat.positionInBar === 1)) {
+          context.addIssue({
+            code: "custom",
+            message: "Downbeats must be the first beat in each bar",
+            path: ["beats", index, "isDownbeat"],
+          });
+        }
+        if (index > 0) {
+          const previous = analysis.beats[index - 1]!.positionInBar;
+          const expected = previous === analysis.meter ? 1 : previous! + 1;
+          if (beat.positionInBar !== expected) {
+            context.addIssue({
+              code: "custom",
+              message: "Bar positions must advance cyclically",
+              path: ["beats", index, "positionInBar"],
+            });
+          }
+        }
+      });
+      if (!analysis.beats.some((beat) => beat.isDownbeat)) {
+        context.addIssue({
+          code: "custom",
+          message: "A metered analysis requires at least one downbeat",
+          path: ["beats"],
+        });
+      }
+    }
+
+    if (
+      analysis.baselineComparison.fallbackUsed !==
+      (analysis.meter === null)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Baseline fallback must match metrical uncertainty",
+        path: ["baselineComparison", "fallbackUsed"],
+      });
+    }
+  });
+
+export type RhythmAnalysisWarning = z.infer<typeof rhythmAnalysisWarningSchema>;
+export type ConfidenceComponents = z.infer<typeof confidenceComponentsSchema>;
+export type QualityBeatPoint = z.infer<typeof qualityBeatPointSchema>;
+export type QualityTempoCandidate = z.infer<typeof qualityTempoCandidateSchema>;
+export type QualityRhythmAnalysis = z.infer<typeof qualityRhythmAnalysisSchema>;
 
 export const judgmentSchema = z.enum(["perfect", "good", "miss"]);
 

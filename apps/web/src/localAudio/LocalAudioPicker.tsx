@@ -6,7 +6,10 @@ import {
   type ChangeEvent,
 } from "react";
 
-import type { BeatGrid } from "@rhythm-game/chart-schema";
+import type {
+  QualityRhythmAnalysis,
+  RhythmAnalysisWarning,
+} from "@rhythm-game/chart-schema";
 
 import type {
   BeatAnalysisProgress,
@@ -62,7 +65,7 @@ type AnalysisState =
       readonly message: string;
       readonly recovery: "retry" | "replace";
     }
-  | { readonly kind: "complete"; readonly grid: BeatGrid };
+  | { readonly kind: "complete"; readonly grid: QualityRhythmAnalysis };
 
 interface LocalAudioPickerProps {
   readonly decodeAudio?: DecodeAudio;
@@ -137,6 +140,27 @@ function formatDuration(seconds: number): string {
   return `${seconds.toFixed(1)} seconds`;
 }
 
+function confidenceLabel(value: number): string {
+  if (value >= 0.75) {
+    return "High";
+  }
+  if (value >= 0.6) {
+    return "Moderate";
+  }
+  return "Low";
+}
+
+const analysisWarningLabels: Record<RhythmAnalysisWarning, string> = {
+  low_confidence:
+    "Overall confidence is low. Treat this as a first pass and review the alternatives.",
+  meter_uncertain:
+    "Meter and downbeats are uncertain. The detected beat timing may still be usable.",
+  half_double_ambiguous:
+    "The musical pulse may be half or double this tempo. Compare the alternatives.",
+  baseline_disagreement:
+    "The quality interpretation disagrees with the baseline timing. Use caution.",
+};
+
 const analysisStageLabels: Record<"preparing" | BeatAnalysisStage, string> = {
   preparing: "Preparing decoded samples",
   downmix: "Combining audio channels",
@@ -144,6 +168,7 @@ const analysisStageLabels: Record<"preparing" | BeatAnalysisStage, string> = {
   onset_envelope: "Finding rhythmic onsets",
   tempo: "Estimating tempo candidates",
   beat_tracking: "Tracking the beat grid",
+  metrical_analysis: "Finding bars and downbeats",
   finalizing: "Validating the beat grid",
 };
 
@@ -576,7 +601,7 @@ export function LocalAudioPicker({
             <h3>Ready for analysis</h3>
             <p className="local-audio__state-copy">
               The browser decoded this track successfully. Run the transparent
-              baseline analyzer locally in a dedicated worker.
+              quality analyzer locally in a dedicated worker.
             </p>
             <dl className="local-audio__facts">
               <div>
@@ -621,12 +646,12 @@ export function LocalAudioPicker({
               {workerAvailable && analysisState.kind === "idle" ? (
                 <div>
                   <p className="local-audio__status-label">
-                    Baseline beat detection
+                    Quality beat and downbeat detection
                   </p>
-                  <h4>Find a first-pass beat grid</h4>
+                  <h4>Find beats, bars, and uncertainty</h4>
                   <p>
                     Analysis runs off the main thread. It does not upload or
-                    save audio or beats.
+                    save audio, beats, or confidence results.
                   </p>
                   <p>
                     Very long or multichannel tracks may be declined before
@@ -694,8 +719,10 @@ export function LocalAudioPicker({
 
               {workerAvailable && analysisState.kind === "complete" ? (
                 <div data-testid="beat-grid">
-                  <p className="local-audio__status-label">beat_grid_ready</p>
-                  <h4>Baseline beat grid</h4>
+                  <p className="local-audio__status-label">
+                    quality_rhythm_analysis_ready
+                  </p>
+                  <h4>Quality beat and downbeat grid</h4>
                   <dl className="beat-grid__summary">
                     <div>
                       <dt>Estimated tempo</dt>
@@ -706,18 +733,64 @@ export function LocalAudioPicker({
                       <dd>{analysisState.grid.beats.length}</dd>
                     </div>
                     <div>
+                      <dt>Meter</dt>
+                      <dd>
+                        {analysisState.grid.meter
+                          ? `${analysisState.grid.meter}/4`
+                          : "Uncertain"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Downbeats</dt>
+                      <dd>
+                        {
+                          analysisState.grid.beats.filter(
+                            (beat) => beat.isDownbeat,
+                          ).length
+                        }
+                      </dd>
+                    </div>
+                    <div>
                       <dt>Analyzer</dt>
                       <dd>{analysisState.grid.analyzerVersion}</dd>
                     </div>
+                    <div>
+                      <dt>Overall confidence</dt>
+                      <dd>
+                        {confidenceLabel(analysisState.grid.confidence.overall)}{" "}
+                        ·{" "}
+                        {Math.round(
+                          analysisState.grid.confidence.overall * 100,
+                        )}
+                        %
+                      </dd>
+                    </div>
                   </dl>
+                  <div
+                    className="beat-grid__legend"
+                    aria-label="Timeline legend"
+                  >
+                    <span>
+                      <i className="beat-grid__legend-marker" /> Beat
+                    </span>
+                    <span>
+                      <i className="beat-grid__legend-marker beat-grid__legend-marker--downbeat" />{" "}
+                      Downbeat · bar start
+                    </span>
+                  </div>
                   <div
                     className="beat-grid__timeline"
                     role="img"
-                    aria-label={`${analysisState.grid.beats.length} detected beats across ${formatDuration(analysisState.grid.durationSeconds)}`}
+                    aria-label={`${analysisState.grid.beats.length} detected beats with ${analysisState.grid.beats.filter((beat) => beat.isDownbeat).length} downbeats across ${formatDuration(analysisState.grid.durationSeconds)}`}
                   >
                     {analysisState.grid.beats.map((beat, index) => (
                       <span
                         key={`${index}-${beat.timeSeconds}`}
+                        className={
+                          beat.isDownbeat
+                            ? "beat-grid__marker beat-grid__marker--downbeat"
+                            : "beat-grid__marker"
+                        }
                         style={{
                           left: `${Math.min(100, (beat.timeSeconds / analysisState.grid.durationSeconds) * 100)}%`,
                           opacity: 0.35 + beat.strength * 0.65,
@@ -732,14 +805,84 @@ export function LocalAudioPicker({
                   >
                     {analysisState.grid.beats.slice(0, 8).map((beat, index) => (
                       <li key={`${index}-${beat.timeSeconds}`}>
-                        <span>Beat {index + 1}</span>
+                        <span>
+                          {beat.isDownbeat ? "Downbeat" : "Beat"} {index + 1}
+                          {beat.positionInBar
+                            ? ` · bar position ${beat.positionInBar}`
+                            : ""}
+                        </span>
                         <strong>{beat.timeSeconds.toFixed(2)} s</strong>
                       </li>
                     ))}
                   </ol>
-                  <p>
-                    Baseline estimate only. Downbeats and uncertainty guidance
-                    arrive in the next stage.
+                  <section
+                    className="beat-grid__confidence"
+                    aria-labelledby="analysis-confidence-title"
+                  >
+                    <h5 id="analysis-confidence-title">Confidence by signal</h5>
+                    <dl>
+                      {(
+                        ["tempo", "beat", "downbeat", "agreement"] as const
+                      ).map((component) => (
+                        <div key={component}>
+                          <dt>{component}</dt>
+                          <dd>
+                            {confidenceLabel(
+                              analysisState.grid.confidence[component],
+                            )}{" "}
+                            ·{" "}
+                            {Math.round(
+                              analysisState.grid.confidence[component] * 100,
+                            )}
+                            %
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </section>
+                  <section
+                    className="beat-grid__alternatives"
+                    aria-labelledby="tempo-alternatives-title"
+                  >
+                    <h5 id="tempo-alternatives-title">Tempo alternatives</h5>
+                    <ol>
+                      {analysisState.grid.tempoCandidates.map((candidate) => (
+                        <li key={`${candidate.bpm}-${candidate.relation}`}>
+                          <strong>{candidate.bpm.toFixed(1)} BPM</strong>
+                          <span>
+                            {candidate.relation} ·{" "}
+                            {Math.round(candidate.score * 100)}% relative score
+                          </span>
+                        </li>
+                      ))}
+                    </ol>
+                  </section>
+                  {analysisState.grid.warnings.length > 0 ? (
+                    <aside
+                      className="beat-grid__warnings"
+                      aria-label="Analysis warnings"
+                    >
+                      <h5>Check this estimate</h5>
+                      <ul>
+                        {analysisState.grid.warnings.map((warning) => (
+                          <li key={warning}>
+                            {analysisWarningLabels[warning]}
+                          </li>
+                        ))}
+                      </ul>
+                    </aside>
+                  ) : (
+                    <p className="beat-grid__confidence-note">
+                      No confidence warning was triggered for this track.
+                    </p>
+                  )}
+                  <p className="beat-grid__comparison">
+                    {analysisState.grid.baselineComparison.fallbackUsed
+                      ? "Baseline beat timing retained; meter and downbeats were not asserted."
+                      : `Quality interpretation agrees ${Math.round(
+                          analysisState.grid.baselineComparison.beatAgreement *
+                            100,
+                        )}% with ${analysisState.grid.baselineComparison.analyzerVersion}.`}
                   </p>
                   <button
                     className="button button--secondary"

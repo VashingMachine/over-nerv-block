@@ -1,11 +1,11 @@
-import type { BeatGrid } from "@rhythm-game/chart-schema";
+import type { QualityRhythmAnalysis } from "@rhythm-game/chart-schema";
 
 import type {
   BeatAnalysisErrorCode,
   BeatAnalysisProgress,
 } from "./beatAnalyzer";
 
-export const beatAnalysisProtocolVersion = 1 as const;
+export const beatAnalysisProtocolVersion = 2 as const;
 
 export interface AnalyzeBeatRequest {
   readonly protocolVersion: typeof beatAnalysisProtocolVersion;
@@ -40,7 +40,7 @@ export type BeatAnalysisWorkerResponse =
       readonly protocolVersion: typeof beatAnalysisProtocolVersion;
       readonly type: "complete";
       readonly requestId: string;
-      readonly result: BeatGrid;
+      readonly result: QualityRhythmAnalysis;
     }
   | {
       readonly protocolVersion: typeof beatAnalysisProtocolVersion;
@@ -60,8 +60,42 @@ const progressStages = new Set([
   "onset_envelope",
   "tempo",
   "beat_tracking",
+  "metrical_analysis",
   "finalizing",
 ]);
+
+export function isBeatAnalysisWorkerRequest(
+  value: unknown,
+): value is BeatAnalysisWorkerRequest {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const request = value as Record<string, unknown>;
+  if (
+    request.protocolVersion !== beatAnalysisProtocolVersion ||
+    typeof request.requestId !== "string"
+  ) {
+    return false;
+  }
+  if (request.type === "cancel") {
+    return true;
+  }
+  if (request.type !== "analyze" || !request.input) {
+    return false;
+  }
+  const input = request.input as Record<string, unknown>;
+  return (
+    Array.isArray(input.channels) &&
+    input.channels.length > 0 &&
+    input.channels.every((channel) => channel instanceof ArrayBuffer) &&
+    typeof input.sampleRate === "number" &&
+    Number.isFinite(input.sampleRate) &&
+    input.sampleRate > 0 &&
+    typeof input.durationSeconds === "number" &&
+    Number.isFinite(input.durationSeconds) &&
+    input.durationSeconds > 0
+  );
+}
 
 export function isBeatAnalysisProgress(
   value: unknown,

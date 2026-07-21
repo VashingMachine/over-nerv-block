@@ -1,0 +1,67 @@
+{
+  "storyId": "05",
+  "previewUrl": "http://127.0.0.1:4173/",
+  "buildIdentifier": "8dd0de8532eaef4bf2c7d18ce78fe96988976180",
+  "capturedAt": "2026-07-21T02:00:01.539Z",
+  "previewType": "loopback production build",
+  "privacy": "repository-owned synthesized inputs only; no filenames, object URLs, raw samples, or rhythm-result files",
+  "qualityAssertions": {
+    "analyzer": "quality-dsp-v1",
+    "tempo": 120,
+    "meter": "4/4",
+    "beatCount": 13,
+    "downbeatCount": 4,
+    "baselineAgreementPercent": 100,
+    "uncertainMeter": true,
+    "uncertainDownbeatCount": 0
+  },
+  "responsiveness": {
+    "intervalMilliseconds": 25,
+    "minimumTicks": 3,
+    "observedTicks": 34
+  },
+  "artifacts": [
+    {
+      "file": "desktop-ready-quality.png",
+      "scenario": "private local preview with explicit quality beat and downbeat action",
+      "viewport": "1280x800",
+      "bytes": 425203,
+      "sha256": "3df1914c92e37a08bde93008a78b3eb2e90c5225648b24f7bf83a5aef7e6d50c"
+    },
+    {
+      "file": "desktop-quality-progress.png",
+      "scenario": "named local quality-analysis progress with cancel action",
+      "viewport": "1280x800 section",
+      "bytes": 106717,
+      "sha256": "df61008d76ea3428a277a4192c1299c1bdd50a1a323377f935a5c889f1fdc885"
+    },
+    {
+      "file": "desktop-quality-grid.png",
+      "scenario": "quality tempo, 4/4 meter, named downbeats, confidence, alternatives, and baseline agreement",
+      "viewport": "1280x800",
+      "bytes": 469751,
+      "sha256": "a89bc71d8b75b45deca7c8469a84631a7841145480c7a4094470d56a908c8920"
+    },
+    {
+      "file": "desktop-meter-uncertain.png",
+      "scenario": "honest uncertain-meter result with no asserted downbeats and visible fallback guidance",
+      "viewport": "1280x800",
+      "bytes": 474679,
+      "sha256": "b7ecdb754cab2c2306591a6adede8fde98d319beb2fc36117dca2a82ea19c2df"
+    },
+    {
+      "file": "quality-analysis-loop.webm",
+      "scenario": "ready, progress, cancel, retry, confident quality grid, and honest uncertain-meter result",
+      "viewport": "1280x800",
+      "bytes": 677235,
+      "sha256": "9f66d51524dbba802cd7b69ffd837034419005cf2f1406c340ace8b921a18e4b"
+    },
+    {
+      "file": "mobile-quality-grid.png",
+      "scenario": "412-pixel quality grid with non-color-only downbeats, confidence, alternatives, and controls",
+      "viewport": "412x915",
+      "bytes": 1275556,
+      "sha256": "087baf881fb3c79542c087fbe376597d0fd35354ee1bb050889a892dafed086b"
+    }
+  ]
+}

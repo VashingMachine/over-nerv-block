@@ -8,10 +8,49 @@ import {
   goodWindowMilliseconds,
   noteJudgmentSchema,
   perfectWindowMilliseconds,
+  qualityAnalyzerVersion,
+  qualityRhythmAnalysisSchema,
   rhythmChartSchema,
   schemaVersion,
   songMetadataSchema,
+  type QualityRhythmAnalysis,
 } from "./index";
+
+function validQualityAnalysis(): QualityRhythmAnalysis {
+  return {
+    schemaVersion,
+    kind: "quality_rhythm_analysis" as const,
+    analyzerVersion: qualityAnalyzerVersion,
+    durationSeconds: 8,
+    analysisSampleRate: 11_025,
+    tempoBpm: 120,
+    meter: 4 as const,
+    confidence: {
+      tempo: 0.84,
+      beat: 0.88,
+      downbeat: 0.82,
+      agreement: 1,
+      overall: 0.86,
+    },
+    tempoCandidates: [
+      { bpm: 120, score: 1, relation: "selected" as const },
+      { bpm: 90, score: 0.4, relation: "alternate" as const },
+    ],
+    warnings: [],
+    baselineComparison: {
+      analyzerVersion: baselineAnalyzerVersion,
+      tempoDeltaBpm: 0,
+      beatAgreement: 1,
+      fallbackUsed: false,
+    },
+    beats: Array.from({ length: 8 }, (_, index) => ({
+      timeSeconds: 1 + index * 0.5,
+      strength: index % 4 === 0 ? 1 : 0.7,
+      isDownbeat: index % 4 === 0,
+      positionInBar: (index % 4) + 1,
+    })),
+  };
+}
 
 describe("shared contracts", () => {
   it("accepts the production-build manifest", () => {
@@ -299,5 +338,109 @@ describe("shared contracts", () => {
         ...mutation,
       }),
     ).toThrow();
+  });
+
+  it("accepts a coherent versioned quality rhythm analysis", () => {
+    expect(
+      qualityRhythmAnalysisSchema.parse(validQualityAnalysis()),
+    ).toMatchObject({
+      analyzerVersion: qualityAnalyzerVersion,
+      meter: 4,
+      warnings: [],
+    });
+  });
+
+  it("accepts truthful meter uncertainty without invented downbeats", () => {
+    const analysis = validQualityAnalysis();
+    analysis.meter = null;
+    analysis.confidence.downbeat = 0.2;
+    analysis.confidence.overall = 0.58;
+    analysis.warnings = ["low_confidence", "meter_uncertain"];
+    analysis.baselineComparison.fallbackUsed = true;
+    analysis.beats = analysis.beats.map((beat) => ({
+      ...beat,
+      isDownbeat: false,
+      positionInBar: null,
+    }));
+
+    expect(qualityRhythmAnalysisSchema.parse(analysis)).toMatchObject({
+      meter: null,
+      warnings: ["low_confidence", "meter_uncertain"],
+    });
+  });
+
+  it.each([
+    [
+      "duplicate warnings",
+      (analysis: ReturnType<typeof validQualityAnalysis>) => {
+        analysis.warnings = ["low_confidence", "low_confidence"];
+        analysis.confidence.overall = 0.5;
+      },
+    ],
+    [
+      "missing low-confidence warning",
+      (analysis: ReturnType<typeof validQualityAnalysis>) => {
+        analysis.confidence.overall = 0.5;
+      },
+    ],
+    [
+      "selected tempo mismatch",
+      (analysis: ReturnType<typeof validQualityAnalysis>) => {
+        analysis.tempoCandidates[0]!.bpm = 121;
+      },
+    ],
+    [
+      "broken bar-position cycle",
+      (analysis: ReturnType<typeof validQualityAnalysis>) => {
+        analysis.beats[2]!.positionInBar = 4;
+      },
+    ],
+    [
+      "downbeat outside position one",
+      (analysis: ReturnType<typeof validQualityAnalysis>) => {
+        analysis.beats[1]!.isDownbeat = true;
+      },
+    ],
+    [
+      "fallback without uncertainty",
+      (analysis: ReturnType<typeof validQualityAnalysis>) => {
+        analysis.baselineComparison.fallbackUsed = true;
+      },
+    ],
+    [
+      "unreported half-tempo ambiguity",
+      (analysis: ReturnType<typeof validQualityAnalysis>) => {
+        analysis.tempoCandidates[1] = {
+          bpm: 60,
+          score: 0.8,
+          relation: "half",
+        };
+      },
+    ],
+    [
+      "incorrect tempo relation",
+      (analysis: ReturnType<typeof validQualityAnalysis>) => {
+        analysis.tempoCandidates[1]!.relation = "half";
+      },
+    ],
+    [
+      "non-canonical warning order",
+      (analysis: ReturnType<typeof validQualityAnalysis>) => {
+        analysis.meter = null;
+        analysis.confidence.downbeat = 0.2;
+        analysis.confidence.overall = 0.58;
+        analysis.warnings = ["meter_uncertain", "low_confidence"];
+        analysis.baselineComparison.fallbackUsed = true;
+        analysis.beats = analysis.beats.map((beat) => ({
+          ...beat,
+          isDownbeat: false,
+          positionInBar: null,
+        }));
+      },
+    ],
+  ])("rejects quality analysis with %s", (_case, mutate) => {
+    const analysis = validQualityAnalysis();
+    mutate(analysis);
+    expect(() => qualityRhythmAnalysisSchema.parse(analysis)).toThrow();
   });
 });

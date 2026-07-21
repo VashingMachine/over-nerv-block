@@ -538,6 +538,53 @@ h1 {
   transform: translateX(-1px);
 }
 
+.beat-grid__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  color: #bbb6ac;
+  font-size: 0.78rem;
+}
+
+.beat-grid__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.beat-grid__legend-marker {
+  display: inline-block;
+  width: 2px;
+  height: 1.1rem;
+  background: #e7c467;
+}
+
+.beat-grid__legend-marker--downbeat {
+  width: 0.38rem;
+  height: 1.35rem;
+  border-radius: 0.2rem 0.2rem 0 0;
+  background: #ec5a3d;
+}
+
+.beat-grid__timeline .beat-grid__marker--downbeat {
+  bottom: 0.25rem;
+  width: 4px;
+  height: 3.75rem;
+  background: #ec5a3d;
+  transform: translateX(-2px);
+}
+
+.beat-grid__timeline .beat-grid__marker--downbeat::before {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 0.5rem;
+  height: 0.5rem;
+  background: #ec5a3d;
+  content: "";
+  transform: translate(-50%, -35%) rotate(45deg);
+}
+
 .beat-grid__times {
   display: grid;
   margin: 0;
@@ -561,6 +608,99 @@ h1 {
 .beat-grid__times strong {
   font-size: 0.78rem;
   white-space: nowrap;
+}
+
+.beat-grid__confidence,
+.beat-grid__alternatives,
+.beat-grid__warnings {
+  margin-top: 1.25rem;
+  padding: 1rem;
+  border: 1px solid rgb(245 241 233 / 14%);
+}
+
+.beat-grid__confidence h5,
+.beat-grid__alternatives h5,
+.beat-grid__warnings h5 {
+  margin: 0 0 0.75rem;
+  font-size: 0.92rem;
+}
+
+.beat-grid__confidence dl {
+  display: grid;
+  margin: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.beat-grid__confidence dl div {
+  min-width: 0;
+}
+
+.beat-grid__confidence dt,
+.beat-grid__confidence dd {
+  margin: 0;
+}
+
+.beat-grid__confidence dt {
+  color: #9e9a92;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.beat-grid__confidence dd {
+  margin-top: 0.25rem;
+  overflow-wrap: anywhere;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.beat-grid__alternatives ol,
+.beat-grid__warnings ul {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  gap: 0.55rem;
+  list-style: none;
+}
+
+.beat-grid__alternatives li {
+  display: flex;
+  min-width: 0;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: #bbb6ac;
+  font-size: 0.78rem;
+}
+
+.beat-grid__alternatives li span {
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.beat-grid__warnings {
+  border-color: rgb(236 90 61 / 50%);
+  background: rgb(236 90 61 / 8%);
+}
+
+.beat-grid__warnings li {
+  position: relative;
+  padding-left: 1.1rem;
+  color: #f1a28f;
+}
+
+.beat-grid__warnings li::before {
+  position: absolute;
+  left: 0;
+  content: "!";
+  font-weight: 800;
+}
+
+.beat-grid__confidence-note,
+.beat-grid__comparison {
+  margin: 1rem 0 0;
+  color: #bbb6ac;
 }
 
 .local-audio__actions {
@@ -1017,8 +1157,18 @@ h1 {
   }
 
   .beat-grid__summary,
-  .beat-grid__times {
+  .beat-grid__times,
+  .beat-grid__confidence dl {
     grid-template-columns: 1fr;
+  }
+
+  .beat-grid__alternatives li {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .beat-grid__alternatives li span {
+    text-align: left;
   }
 
   .local-audio__actions {

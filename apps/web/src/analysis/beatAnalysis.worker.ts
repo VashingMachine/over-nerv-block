@@ -1,12 +1,14 @@
 /// <reference lib="webworker" />
 
-import { analyzeBeatGrid, BeatAnalysisError } from "./beatAnalyzer";
+import { BeatAnalysisError } from "./beatAnalyzer";
 import {
   beatAnalysisProtocolVersion,
+  isBeatAnalysisWorkerRequest,
   type AnalyzeBeatRequest,
   type BeatAnalysisWorkerRequest,
   type BeatAnalysisWorkerResponse,
 } from "./beatAnalysisProtocol";
+import { analyzeQualityRhythm } from "./qualityBeatAnalyzer";
 
 const workerScope: DedicatedWorkerGlobalScope =
   self as DedicatedWorkerGlobalScope;
@@ -21,7 +23,7 @@ const yieldToWorkerQueue = () =>
 
 async function analyze(request: AnalyzeBeatRequest): Promise<void> {
   try {
-    const result = await analyzeBeatGrid(
+    const result = await analyzeQualityRhythm(
       {
         channels: request.input.channels.map(
           (buffer) => new Float32Array(buffer),
@@ -81,8 +83,8 @@ async function analyze(request: AnalyzeBeatRequest): Promise<void> {
 workerScope.addEventListener(
   "message",
   (event: MessageEvent<BeatAnalysisWorkerRequest>) => {
-    const request = event.data;
-    if (request.protocolVersion !== beatAnalysisProtocolVersion) {
+    const request: unknown = event.data;
+    if (!isBeatAnalysisWorkerRequest(request)) {
       return;
     }
     if (request.type === "cancel") {

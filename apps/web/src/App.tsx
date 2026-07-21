@@ -22,15 +22,15 @@ export function App() {
       <main>
         <section className="hero">
           <div className="eyebrow">
-            <span>04</span>
-            <span>Baseline beat grid</span>
+            <span>05</span>
+            <span>Downbeats and confidence</span>
           </div>
           <div className="hero-copy">
             <p className="kicker">Your music. Your timing.</p>
             <h1>Make every beat playable.</h1>
             <p className="lede">
-              Prepare music privately, detect a first-pass beat grid off the
-              main thread, or calibrate on the original demo. Nothing is
+              Prepare music privately, detect beats and bar starts off the main
+              thread, and see uncertainty instead of hidden guesses. Nothing is
               uploaded.
             </p>
           </div>
@@ -41,7 +41,7 @@ export function App() {
       </main>
 
       <footer className="footer">
-        <p>Stage 04 / Baseline beat grid</p>
+        <p>Stage 05 / Downbeats and confidence</p>
         <p>Runs locally in your browser.</p>
       </footer>
     </div>

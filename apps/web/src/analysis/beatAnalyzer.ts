@@ -19,6 +19,7 @@ export type BeatAnalysisStage =
   | "onset_envelope"
   | "tempo"
   | "beat_tracking"
+  | "metrical_analysis"
   | "finalizing";
 
 export interface BeatAnalysisProgress {

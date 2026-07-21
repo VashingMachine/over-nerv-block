@@ -75,6 +75,41 @@ function silentWave(durationSeconds = 2, sampleRate = 22_050) {
   return wave;
 }
 
+function flatAccentPulseWave(durationSeconds = 8, sampleRate = 22_050) {
+  const sampleCount = durationSeconds * sampleRate;
+  const dataSize = sampleCount * 2;
+  const samples = new Float64Array(sampleCount);
+  for (let beatTime = 1; beatTime <= durationSeconds - 1; beatTime += 0.5) {
+    const start = Math.round(beatTime * sampleRate);
+    const pulseLength = Math.round(0.17 * sampleRate);
+    for (let offset = 0; offset < pulseLength; offset += 1) {
+      const elapsed = offset / sampleRate;
+      samples[start + offset] =
+        Math.sin(2 * Math.PI * (80 - elapsed * 140) * elapsed) *
+        Math.exp(-elapsed * 27) *
+        0.72;
+    }
+  }
+  const wave = Buffer.alloc(44 + dataSize);
+  wave.write("RIFF", 0);
+  wave.writeUInt32LE(36 + dataSize, 4);
+  wave.write("WAVE", 8);
+  wave.write("fmt ", 12);
+  wave.writeUInt32LE(16, 16);
+  wave.writeUInt16LE(1, 20);
+  wave.writeUInt16LE(1, 22);
+  wave.writeUInt32LE(sampleRate, 24);
+  wave.writeUInt32LE(sampleRate * 2, 28);
+  wave.writeUInt16LE(2, 32);
+  wave.writeUInt16LE(16, 34);
+  wave.write("data", 36);
+  wave.writeUInt32LE(dataSize, 40);
+  samples.forEach((sample, index) => {
+    wave.writeInt16LE(Math.round(sample * 32_767), 44 + index * 2);
+  });
+  return wave;
+}
+
 async function startHeartbeat(page: Page) {
   await page.evaluate(() => {
     const testWindow = window as typeof window & {
@@ -144,7 +179,13 @@ test("player privately prepares and clears a valid local song", async ({
   await expect(page.getByTestId("beat-grid")).toBeVisible();
   expect(await stopHeartbeat(page)).toBeGreaterThanOrEqual(3);
   const tempo = Number(
-    (await page.getByText(/^[0-9]+\.[0-9] BPM$/).innerText()).split(" ")[0],
+    (
+      await page
+        .getByText("Estimated tempo", { exact: true })
+        .locator("..")
+        .locator("dd")
+        .innerText()
+    ).split(" ")[0],
   );
   expect(tempo).toBeGreaterThanOrEqual(115);
   expect(tempo).toBeLessThanOrEqual(125);
@@ -157,9 +198,20 @@ test("player privately prepares and clears a valid local song", async ({
   );
   expect(beatCount).toBeGreaterThanOrEqual(12);
   expect(beatCount).toBeLessThanOrEqual(14);
-  await expect(page.getByText("baseline-dsp-v1")).toBeVisible();
+  await expect(page.getByText("quality-dsp-v1")).toBeVisible();
   await expect(
-    page.getByRole("img", { name: /detected beats across 8.0 seconds/ }),
+    page.getByText("Meter", { exact: true }).locator("..").locator("dd"),
+  ).toHaveText("4/4");
+  await expect(
+    page.getByText("Downbeats", { exact: true }).locator("..").locator("dd"),
+  ).toHaveText("4");
+  await expect(
+    page.getByRole("img", {
+      name: /detected beats with 4 downbeats across 8.0 seconds/,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/Quality interpretation agrees 100% with baseline-dsp-v1/),
   ).toBeVisible();
   await expect(page.getByText(privateFilename)).toHaveCount(0);
   await expectHorizontalContainment(page);
@@ -240,6 +292,42 @@ test("player sees a stable real-worker failure and can retry", async ({
     "No clear rhythmic onsets were found in this audio.",
   );
   await expect(page.getByLabel("Local audio preview")).toBeVisible();
+  await expectHorizontalContainment(page);
+});
+
+test("player sees honest meter uncertainty without invented downbeats", async ({
+  page,
+}) => {
+  await page.goto("./");
+  await selectPayload(
+    page,
+    "private-flat-accents.wav",
+    "audio/wav",
+    flatAccentPulseWave(),
+  );
+  await expect(
+    page.getByRole("heading", { name: "Ready for analysis" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Analyze beats" }).click();
+
+  await expect(page.getByTestId("beat-grid")).toBeVisible();
+  await expect(
+    page.getByText("Meter", { exact: true }).locator("..").locator("dd"),
+  ).toHaveText("Uncertain");
+  await expect(
+    page.getByText("Downbeats", { exact: true }).locator("..").locator("dd"),
+  ).toHaveText("0");
+  await expect(
+    page.getByText(
+      "Meter and downbeats are uncertain. The detected beat timing may still be usable.",
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "Baseline beat timing retained; meter and downbeats were not asserted.",
+    ),
+  ).toBeVisible();
+  await expect(page.getByText("private-flat-accents.wav")).toHaveCount(0);
   await expectHorizontalContainment(page);
 });
 
