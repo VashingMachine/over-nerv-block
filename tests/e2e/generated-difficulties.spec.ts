@@ -214,7 +214,7 @@ test("player completes and tears down a generated local chart", async ({
   }));
   expect(localState).toEqual({
     databaseNames: ["rhythm-game-history", "rhythm-game-recovery"],
-    localStorageKeys: [],
+    localStorageKeys: ["over-nerv-block:accessibility:v1"],
   });
 
   await generated.getByRole("button", { name: "Play again" }).click();

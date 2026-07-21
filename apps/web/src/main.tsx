@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { App } from "./App";
+import { AccessibilityProvider } from "./accessibility/accessibilitySettings";
 import "./styles.css";
 
 const root = document.getElementById("root");
@@ -12,6 +13,8 @@ if (!root) {
 
 createRoot(root).render(
   <StrictMode>
-    <App />
+    <AccessibilityProvider>
+      <App />
+    </AccessibilityProvider>
   </StrictMode>,
 );

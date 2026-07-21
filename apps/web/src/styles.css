@@ -32,8 +32,15 @@ body {
 }
 
 button,
-a {
+a,
+select,
+input {
   font: inherit;
+}
+
+:where(button, a, select, input, textarea, [tabindex]):focus-visible {
+  outline: 3px solid #ffd166;
+  outline-offset: 3px;
 }
 
 .app-shell {
@@ -68,6 +75,92 @@ main,
 .footer {
   min-width: 0;
   max-width: 100%;
+}
+
+.settings-grid {
+  display: grid;
+  width: min(1180px, calc(100% - 2rem));
+  margin: 0 auto 1.5rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.pwa-card,
+.accessibility-card {
+  display: grid;
+  min-width: 0;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  border: 1px solid rgb(245 241 233 / 16%);
+  border-radius: 1.2rem;
+  background: rgb(17 16 15 / 78%);
+  gap: 1rem;
+}
+
+.pwa-card h2,
+.pwa-card p,
+.accessibility-card h2,
+.accessibility-card p {
+  margin: 0;
+}
+
+.pwa-facts {
+  display: grid;
+  margin: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.pwa-facts > div {
+  min-width: 0;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  background: rgb(245 241 233 / 5%);
+}
+
+.pwa-facts dt,
+.accessibility-controls label {
+  color: rgb(245 241 233 / 70%);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pwa-facts dd {
+  overflow-wrap: anywhere;
+  margin: 0.35rem 0 0;
+  font-weight: 700;
+}
+
+.pwa-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.pwa-guidance,
+.privacy-note,
+.accessibility-summary {
+  color: rgb(245 241 233 / 72%);
+  font-size: 0.9rem;
+}
+
+.accessibility-controls {
+  display: grid;
+  grid-template-columns: minmax(8rem, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+
+.accessibility-controls select {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid rgb(245 241 233 / 28%);
+  border-radius: 0.65rem;
+  color: #f5f1e9;
+  background: #211f1d;
 }
 
 .correction-editor {
@@ -501,9 +594,9 @@ h1 {
   min-width: 10rem;
   align-self: center;
   padding: 1rem 1.25rem;
-  border-color: #ec5a3d;
+  border-color: #b83e26;
   color: #f5f1e9;
-  background: #ec5a3d;
+  background: #b83e26;
 }
 
 .button--secondary {
@@ -1791,5 +1884,37 @@ h1 {
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+  }
+}
+
+html[data-motion="reduce"] *,
+html[data-motion="reduce"] *::before,
+html[data-motion="reduce"] *::after {
+  scroll-behavior: auto !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+html[data-motion="full"] *,
+html[data-motion="full"] *::before,
+html[data-motion="full"] *::after {
+  animation-duration: revert;
+}
+
+@media (max-width: 760px) {
+  .settings-grid {
+    width: min(100% - 1rem, 1180px);
+    grid-template-columns: 1fr;
+  }
+
+  .pwa-facts,
+  .accessibility-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .pwa-actions .button {
+    width: 100%;
+    min-height: 48px;
   }
 }

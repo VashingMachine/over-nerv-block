@@ -257,15 +257,15 @@ test("player privately prepares and clears a valid local song", async ({
     };
   });
   expect(persistence).toEqual({
-    cacheKeys: [],
+    cacheKeys: [expect.stringMatching(/^over-nerv-block-shell-/)],
     checkpoint: expect.objectContaining({
       checkpointVersion: 1,
       kind: "completed_beat_grid_checkpoint",
       grid: expect.objectContaining({ kind: "quality_rhythm_analysis" }),
     }),
     databaseNames: ["rhythm-game-history", "rhythm-game-recovery"],
-    localStorageKeys: [],
-    registrations: 0,
+    localStorageKeys: ["over-nerv-block:accessibility:v1"],
+    registrations: 1,
   });
   expect(Object.keys(persistence.checkpoint).sort()).toEqual([
     "checkpointVersion",

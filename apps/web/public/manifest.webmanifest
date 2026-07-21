@@ -1,0 +1,28 @@
+{
+  "name": "Over Nerv Block",
+  "short_name": "Nerv Block",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "description": "A private browser-local rhythm game that turns music into playable beat charts.",
+  "theme_color": "#11100f",
+  "background_color": "#11100f",
+  "categories": ["games", "music"],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "./icons/app-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -20,6 +20,15 @@ import {
   type BeatAnalysisWorkerErrorCode,
   type BeatAnalysisWorkerRequest,
 } from "./beatAnalysisProtocol";
+import {
+  AnalysisPreparationError,
+  copyDirectAnalysisInput,
+  decodedAnalysisFitsBudget,
+  maximumDecodedAnalysisChannelSamples,
+  prepareAnalysisInput,
+} from "./prepareAnalysisInput";
+
+export { decodedAnalysisFitsBudget, maximumDecodedAnalysisChannelSamples };
 
 export type BeatAnalysisBoundaryErrorCode =
   | "missing_samples"
@@ -102,35 +111,8 @@ const createModuleWorker: BeatAnalysisWorkerFactory = () =>
 
 let requestSequence = 0;
 
-export const maximumDecodedAnalysisChannelSamples = 24_000_000;
-
 function cancellationError(): DOMException {
   return new DOMException("Beat analysis was cancelled", "AbortError");
-}
-
-function channelCopies(buffer: AudioBuffer): Float32Array[] {
-  const channels: Float32Array[] = [];
-  for (
-    let channelIndex = 0;
-    channelIndex < buffer.numberOfChannels;
-    channelIndex += 1
-  ) {
-    const channel = new Float32Array(buffer.length);
-    buffer.copyFromChannel(channel, channelIndex);
-    channels.push(channel);
-  }
-  return channels;
-}
-
-export function decodedAnalysisFitsBudget(
-  buffer: Pick<AudioBuffer, "length" | "numberOfChannels">,
-): boolean {
-  const channelSamples = buffer.length * buffer.numberOfChannels;
-  return (
-    Number.isSafeInteger(channelSamples) &&
-    channelSamples > 0 &&
-    channelSamples <= maximumDecodedAnalysisChannelSamples
-  );
 }
 
 interface WorkerAttemptInput {
@@ -340,10 +322,6 @@ export async function analyzeDecodedAudioInWorker(
     transition({ type: "cancel" });
     throw cancellationError();
   }
-  if (!decodedAnalysisFitsBudget(audioBuffer)) {
-    decoded.release();
-    throw failDuringPreparation("analysis_too_large");
-  }
   if (
     !Number.isFinite(attemptTimeoutMilliseconds) ||
     attemptTimeoutMilliseconds <= 0
@@ -352,16 +330,26 @@ export async function analyzeDecodedAudioInWorker(
     throw failDuringPreparation("invalid_input");
   }
 
-  let channels: Float32Array[];
+  let preparedInput;
   try {
-    channels = channelCopies(audioBuffer);
-  } catch {
+    preparedInput = decodedAnalysisFitsBudget(audioBuffer)
+      ? copyDirectAnalysisInput(audioBuffer)
+      : await prepareAnalysisInput(audioBuffer, { signal });
+  } catch (error) {
     decoded.release();
-    throw failDuringPreparation("missing_samples");
+    if (error instanceof DOMException && error.name === "AbortError") {
+      transition({ type: "cancel" });
+      throw error;
+    }
+    const code =
+      error instanceof AnalysisPreparationError
+        ? error.code
+        : "missing_samples";
+    throw failDuringPreparation(code);
   }
   const input: WorkerAttemptInput = {
-    channels,
-    sampleRate: audioBuffer.sampleRate,
+    channels: preparedInput.channels,
+    sampleRate: preparedInput.sampleRate,
     durationSeconds: decoded.durationSeconds,
   };
   decoded.release();

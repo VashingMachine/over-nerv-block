@@ -14,6 +14,12 @@ import type {
 } from "@rhythm-game/chart-schema";
 
 import {
+  hitKeyLabels,
+  isEditableKeyboardTarget,
+  useAccessibilitySettings,
+} from "../accessibility/accessibilitySettings";
+
+import {
   createWebAudioEngine,
   type AudioEngine,
   type AudioEngineFactory,
@@ -94,6 +100,7 @@ export function RhythmGame({
   createAudioEngine = createWebAudioEngine,
   now = currentIsoTimestamp,
 }: RhythmGameProps) {
+  const { settings: accessibilitySettings } = useAccessibilitySettings();
   const { chart } = experience;
   const [phase, setPhase] = useState<GamePhase>("idle");
   const [countdownBeat, setCountdownBeat] = useState(3);
@@ -338,8 +345,9 @@ export function RhythmGame({
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
-        event.code === "Space" &&
+        event.code === accessibilitySettings.hitKey &&
         !event.repeat &&
+        !isEditableKeyboardTarget(event.target) &&
         registerInputRef.current(event.timeStamp)
       ) {
         event.preventDefault();
@@ -347,7 +355,7 @@ export function RhythmGame({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [accessibilitySettings.hitKey]);
 
   useEffect(() => {
     if (phase !== "countdown" && phase !== "playing") {
@@ -433,7 +441,9 @@ export function RhythmGame({
             </div>
             <div>
               <dt>Controls</dt>
-              <dd>Space, canvas, or Hit</dd>
+              <dd>
+                {hitKeyLabels[accessibilitySettings.hitKey]}, canvas, or Hit
+              </dd>
             </div>
             <div>
               <dt>Timing</dt>
@@ -623,6 +633,7 @@ export function RhythmGame({
               <button
                 className="button button--hit"
                 type="button"
+                aria-keyshortcuts={hitKeyLabels[accessibilitySettings.hitKey]}
                 onClick={(event) => registerInput(event.timeStamp)}
                 disabled={phase !== "playing"}
               >

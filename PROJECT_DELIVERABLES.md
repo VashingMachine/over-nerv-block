@@ -697,13 +697,30 @@ Do not add permanent audio storage or public sharing.
 
 Deliver:
 
-- Installable PWA shell; offline bundled demo only.
+- Installable PWA shell that is accepted from an immutable production build served on
+  `127.0.0.1`; no cloud account, public URL, hosted server, or external deployment is
+  required. The guaranteed offline flow is the repository-owned bundled demo.
 - Responsive file selection, editor, game, and results.
 - Reduced motion, remappable primary key where practical, visible focus, semantic non-canvas controls, contrast, and non-color-only judgments.
 - Capability/unsupported-browser messaging and safe updates.
 - Accessibility, viewport, PWA, browser E2E, and real-device Product Review.
 
 Local analysis MAY work offline only after required worker/model assets are cached and verified; capability messaging must be truthful.
+
+Sprint 10 also closes the long-track acceptance gap with the user-supplied local file
+`salt.mp3`. That exact file MUST be selectable, decoded, analyzed, and usable to start a
+generated chart on the local production build. It is private acceptance input: ignore it
+in Git, never copy/package/upload it, never put its filename or audio/artwork in UI,
+logs, persistence, screenshots, video, CI artifacts, or review packets, and never make CI
+depend on the file. A generic opt-in private-audio production E2E harness MUST exercise
+the same path locally, while normal CI and Product Review continue to use only
+repository-owned synthesized audio. Automated metadata/hash reporting is allowed to
+identify the local acceptance input without exposing its content.
+
+For this and every later sprint, “deploy” means serving the immutable static production
+artifact on loopback for acceptance unless the user separately requests publication.
+Running a server version on an external host is not a deliverable. GitHub Pages remains
+an optional future convenience, not an acceptance gate.
 
 ### Stage D — Hardening and mobile path
 
@@ -737,9 +754,10 @@ Deliver:
 
 Deliver:
 
-**This sprint is optional unless the user requests external publication.**
+**External publication is optional. The local production-release sprint itself remains
+required and is accepted from the immutable artifact on loopback.**
 
-- Optional GitHub Pages/custom-domain publication, CSP/security policy, privacy/local-retention explanation, music-rights confirmation, support path, and version display.
+- Local immutable release artifact, CSP/security policy, privacy/local-retention explanation, music-rights confirmation, support path, and version display. GitHub Pages/custom-domain publication is optional and occurs only when explicitly requested.
 - Published-site smoke/E2E using owned fixtures, or accepted-artifact smoke if the release remains local-only.
 - Export/import or reproducibility plan for locally stored charts/metadata.
 - Rollback/flag drill.

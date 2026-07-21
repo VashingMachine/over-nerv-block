@@ -175,15 +175,20 @@ test("player corrects a grid and plays regenerated difficulties", async ({
       cacheKeys: "caches" in window ? await caches.keys() : [],
     };
   });
-  expect(privacy.entries).toHaveLength(1);
-  expect(privacy.entries[0]![0]).toMatch(/^over-nerv-block:rhythm-correction:/);
-  expect(privacy.entries[0]![1]).not.toContain("beats");
-  expect(privacy.entries[0]![1]).not.toContain(privateFilename);
+  expect(privacy.entries).toHaveLength(2);
+  const correctionEntry = privacy.entries.find(([key]) =>
+    key.startsWith("over-nerv-block:rhythm-correction:"),
+  );
+  expect(correctionEntry).toBeDefined();
+  expect(correctionEntry![1]).not.toContain("beats");
+  expect(correctionEntry![1]).not.toContain(privateFilename);
   expect(privacy.databaseNames).toEqual([
     "rhythm-game-history",
     "rhythm-game-recovery",
   ]);
-  expect(privacy.cacheKeys).toEqual([]);
+  expect(privacy.cacheKeys).toEqual([
+    expect.stringMatching(/^over-nerv-block-shell-/),
+  ]);
   expect(applicationWrites).toEqual([]);
   expect(consoleMessages.join("\n")).not.toContain(privateFilename);
   await expect(page.getByText(privateFilename)).toHaveCount(0);
@@ -199,7 +204,7 @@ test("saved corrections restore only after matching local reanalysis", async ({
   await editor.getByLabel("Offset in milliseconds").fill("100");
   await editor.getByRole("button", { name: "Apply offset" }).click();
   const saved = await page.evaluate(() => Object.entries(localStorage));
-  expect(saved).toHaveLength(1);
+  expect(saved).toHaveLength(2);
 
   await page.reload();
   await expect(page.getByText("No song selected")).toBeVisible();
@@ -289,6 +294,8 @@ test("player taps a new grid, validates mistakes, undoes, and resets", async ({
       .getByText("Working", { exact: true })
       .locator(".."),
   ).toContainText("120.0 BPM");
-  expect(await page.evaluate(() => Object.keys(localStorage))).toEqual([]);
+  expect(await page.evaluate(() => Object.keys(localStorage))).toEqual([
+    "over-nerv-block:accessibility:v1",
+  ]);
   await expectHorizontalContainment(page);
 });

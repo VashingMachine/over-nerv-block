@@ -1,7 +1,9 @@
 import { SystemStatus } from "./components/SystemStatus";
+import { AccessibilityPanel } from "./accessibility/AccessibilityPanel";
 import { DemoGame } from "./demo/DemoGame";
 import { useBuildManifest } from "./hooks/useBuildManifest";
 import { LocalAudioPicker } from "./localAudio/LocalAudioPicker";
+import { PwaPanel } from "./pwa/PwaPanel";
 
 const buildId = import.meta.env.VITE_BUILD_ID ?? "development";
 
@@ -22,8 +24,8 @@ export function App() {
       <main>
         <section className="hero">
           <div className="eyebrow">
-            <span>09</span>
-            <span>Results and chart-only history</span>
+            <span>10</span>
+            <span>Responsive, accessible local app</span>
           </div>
           <div className="hero-copy">
             <p className="kicker">Your music. Your timing.</p>
@@ -36,13 +38,17 @@ export function App() {
           </div>
           <SystemStatus state={systemState} onRetry={retry} />
         </section>
+        <div className="settings-grid">
+          <PwaPanel buildIdentifier={buildId} />
+          <AccessibilityPanel />
+        </div>
         <LocalAudioPicker />
         <DemoGame />
       </main>
 
       <footer className="footer">
-        <p>Stage 09 / Results and chart-only history</p>
-        <p>Runs locally in your browser.</p>
+        <p>Stage 10 / Responsive, accessible PWA</p>
+        <p>Local production build · no cloud server.</p>
       </footer>
     </div>
   );

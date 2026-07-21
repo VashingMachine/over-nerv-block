@@ -599,7 +599,7 @@ describe("beat-analysis worker boundary", () => {
     expect(createWorker).not.toHaveBeenCalled();
   });
 
-  it("rejects decoded input above the channel-sample budget before copying", async () => {
+  it("rejects an oversized prepared representation before copying or creating a worker", async () => {
     const release = vi.fn();
     const copyFromChannel = vi.fn();
     const numberOfChannels = 2;
@@ -612,8 +612,9 @@ describe("beat-analysis worker boundary", () => {
           duration: 600,
           length: Math.floor(maximumDecodedAnalysisChannelSamples / 2) + 1,
           numberOfChannels,
-          sampleRate: 48_000,
+          sampleRate: 1,
           copyFromChannel,
+          getChannelData: vi.fn(),
         }) as unknown as AudioBuffer,
       release,
     };

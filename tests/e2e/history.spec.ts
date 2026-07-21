@@ -252,10 +252,10 @@ test("returning player reviews audio-free history and controls its lifecycle", a
         : 0,
   }));
   expect(privacy).toEqual({
-    cacheKeys: [],
+    cacheKeys: [expect.stringMatching(/^over-nerv-block-shell-/)],
     databaseNames: ["rhythm-game-history", "rhythm-game-recovery"],
-    localStorageKeys: [],
-    registrations: 0,
+    localStorageKeys: ["over-nerv-block:accessibility:v1"],
+    registrations: 1,
   });
   expect(applicationWrites).toEqual([]);
   expect(consoleMessages.join("\n")).not.toContain(privateFilename);

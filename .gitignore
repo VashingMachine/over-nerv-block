@@ -13,3 +13,6 @@ pages-site/
 coverage/
 playwright-report/
 test-results/
+
+# User-supplied private acceptance track. Never commit or package it.
+salt.mp3
