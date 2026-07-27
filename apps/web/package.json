@@ -13,17 +13,17 @@
   "dependencies": {
     "@rhythm-game/chart-schema": "*",
     "phaser": "4.2.1",
-    "react": "latest",
-    "react-dom": "latest"
+    "react": "*",
+    "react-dom": "*"
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "latest",
-    "@testing-library/react": "latest",
-    "@types/react": "latest",
-    "@types/react-dom": "latest",
-    "@vitejs/plugin-react": "latest",
-    "jsdom": "latest",
-    "vite": "latest",
-    "vitest": "latest"
+    "@testing-library/jest-dom": "*",
+    "@testing-library/react": "*",
+    "@types/react": "*",
+    "@types/react-dom": "*",
+    "@vitejs/plugin-react": "^6.0.4",
+    "jsdom": "*",
+    "vite": "*",
+    "vitest": "*"
   }
 }
